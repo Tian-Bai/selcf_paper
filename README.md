@@ -19,7 +19,7 @@ The simulation in the paper was run with Python 3. The following Python packages
 
 #### Single run 
 
-Calling the file `simu.py` executes one run of the simulation. It takes five inputs: `--sig` from 1 to 10 corresponds to the noise strength $\sigma$ in the paper from 0.1 to 1), `--nt_id` from 1 to 4 corresponds to test sample sizes 10, 100, 500, 1000, `--set_id` from 1 to 8 corresponds to the eight data generating processes in the paper (Table 2), `--q` from 1, 2, 5 corresponds to FDR level 0.1, 0.2 and 0.5, `--seed` from 1 to 1000 is the random seed used in this run. 
+Calling the file `simu.py` executes one run of the simulation. It takes five inputs: `--sig` from 1 to 10 corresponds to the noise strength $\sigma$ in the paper from 0.1 to 1, `--nt_id` from 1 to 4 corresponds to test sample sizes 10, 100, 500, 1000, `--set_id` from 1 to 8 corresponds to the eight data generating processes in the paper (Table 2), `--q` from 1, 2, 5 corresponds to FDR level 0.1, 0.2 and 0.5, `--seed` from 1 to 1000 is the random seed used in this run. 
 
 
 
