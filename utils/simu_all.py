@@ -26,11 +26,11 @@ q_list = [0.1, 0.2, 0.5]
 # q_list = [0.1]
 
 reg_names = ['gbr', 'rf', 'svm']
-reg_names = ['rf']
+reg_names = ['gbr']
     
 n = 1000
 all_res = pd.DataFrame()
-out_dir = "../results/"
+out_dir = "../csv/"
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     print("Output diretory created!")
@@ -138,4 +138,4 @@ for (a, b, c, d, e) in tqdm(combined_itr, total=total_len):
 # for (a, b, c, d, e) in combined_itr:
     all_res = run(all_res, a, b, c, d, e)
                     
-all_res.to_csv("../results/all.csv")
+all_res.to_csv("../csv/all.csv")

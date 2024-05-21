@@ -15,14 +15,15 @@ from utils import gen_data, BH
 ''' 
 1. generate the FDR and power plot as in the paper
 '''
+regressor = 'gbr' # 'rf', 'gbr', 'svm'
 
-target = 'power' # 'fdp', 'power'
+target = 'fdp' # 'fdp', 'power'
 if target == 'power':
     t2 = 'Power'
 elif target == 'fdp':
     t2 = 'FDP'
 
-df = pd.read_csv("..\\results\\all.csv")
+df = pd.read_csv(f"..\\csv\\{regressor}1256withr^2.csv")
 df = df.groupby(['sigma', 'q', 'set', 'ntest', 'regressor']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
 df.to_csv("avg.csv")
@@ -46,20 +47,20 @@ for (s, n), group in grouped:
     x = idx // 4
     y = idx % 4
     if idx == 0:
-        axs[x][y].plot(BH_res, marker='o', label="BH_res")
-        axs[x][y].plot(BH_rel, marker='o', label="BH_rel")
+        # axs[x][y].plot(BH_res, marker='o', label="BH_res")
+        axs[x][y].plot(BH_rel, marker='o', label="BH_sub")
         axs[x][y].plot(BH_2clip, marker='o', label="BH_2clip")
-        axs[x][y].plot(bon, marker='o', label="Bonferroni")
+        # axs[x][y].plot(bon, marker='o', label="Bonferroni")
     else:
-        axs[x][y].plot(BH_res, marker='o')
+        # axs[x][y].plot(BH_res, marker='o')
         axs[x][y].plot(BH_rel, marker='o')
         axs[x][y].plot(BH_2clip, marker='o')
-        axs[x][y].plot(bon, marker='o')
+        # axs[x][y].plot(bon, marker='o')
     
     if y % 4 == 3: # right
         axs[x][y].yaxis.set_label_position('right')
         #axs[x][y].yaxis.set_ticks_position('right')
-        axs[x][y].set_ylabel(f'Setting {s}')
+        axs[x][y].set_ylabel(f'Setting {s if s < 5 else s - 2}')
     
     if x == 0: # top
         axs[x][y].xaxis.set_label_position('top')
@@ -70,7 +71,7 @@ for (s, n), group in grouped:
 # fig.text(0.475, 0.08, "Noise level sigma")
 fig.supxlabel("Noise level sigma")
 fig.supylabel(f'{t2}')
-fig.suptitle(f"{t2} for different procedures, number of tests and settings with control level 0.1")
+fig.suptitle(f"{t2} for different procedures, number of tests and settings \n with control level 0.1, with {regressor} regressor")
 fig.legend()
 
-plt.savefig(f'{target}.png')
+plt.savefig(f'{target} {regressor}.png')
