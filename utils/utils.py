@@ -25,6 +25,7 @@ def gen_data(setting, n, sig):
         mu_x = (X[:,0] * X[:,1] + np.exp(X[:,3] - 1)) * 5
         Y = mu_x + np.random.normal(size=n) * 1.5 * sig 
         return X, Y, mu_x
+    
     if setting == 3:
         mu_x = (X[:,0] * X[:,1] + np.exp(X[:,3] - 1)) * 5
         Y = mu_x + np.random.normal(size=n) * (5.5 - abs(mu_x))/2 * sig 
@@ -57,8 +58,6 @@ def gen_data(setting, n, sig):
         sig_x = 0.25 * mu_x**2 * (np.abs(mu_x) < 2) + 0.5 * np.abs(mu_x) * (np.abs(mu_x) >= 1)
         Y = mu_x + np.random.normal(size=n) * sig_x * sig
         return X, Y, mu_x
-     
- 
 
 def BH(calib_scores, test_scores, q = 0.1):
     ntest = len(test_scores)
@@ -68,7 +67,6 @@ def BH(calib_scores, test_scores, q = 0.1):
     for j in range(ntest):
         pvals[j] = (np.sum(calib_scores < test_scores[j]) + np.random.uniform(size=1)[0] * (np.sum(calib_scores == test_scores[j]) + 1)) / (ncalib+1)
          
-    
     # BH(q) 
     df_test = pd.DataFrame({"id": range(ntest), "pval": pvals}).sort_values(by='pval')
     
@@ -81,3 +79,13 @@ def BH(calib_scores, test_scores, q = 0.1):
         idx_sel = np.array(df_test.index[range(np.max(idx_smaller)+1)])
         return(idx_sel)
     
+def Bonferroni(calib_scores, test_scores, q = 0.1):
+    ntest = len(test_scores)
+    ncalib = len(calib_scores)
+    pvals = np.zeros(ntest)
+    
+    for j in range(ntest):
+        pvals[j] = (np.sum(calib_scores < test_scores[j]) + np.random.uniform(size=1)[0] * (np.sum(calib_scores == test_scores[j]) + 1)) / (ncalib+1)
+
+    idxs = [j for j in range(ntest) if pvals[j] <= q / ntest]
+    return np.array(idxs)
