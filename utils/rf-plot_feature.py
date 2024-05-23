@@ -15,11 +15,11 @@ from utils import gen_data, BH
 regressor = 'rf' # 'rf', 'gbr', 'svm'
 targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
 
-df = pd.read_csv(f"..\\csv\\{regressor}-complexityavg.csv")
-# df = df.groupby(['set', 'regressor', 'n_estim', 'max_depth']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
-# df.to_csv("avg.csv")
+df = pd.read_csv(f"..\\csv\\{regressor}-features-0.5v0.2.csv")
+df = df.groupby(['set', 'regressor', 'n_estim', 'max_depth', 'max_features']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
+df.to_csv("avg.csv")
 
-n_estim = 50 # 10, 20, ..., 100 or all
+n_estim = 50
 if n_estim != 'all':
     df = df[df['n_estim'] == n_estim]
 
@@ -36,14 +36,14 @@ for (target, tname) in targets:
         BH_2clip = []
         bon = []
         r_sq = []
-        for depth in sorted(group['max_depth'].unique()):
+        for features in sorted(group['max_features'].unique()):
             if target != 'r_squared':
-                BH_res.append(group[group['max_depth'] == depth][f'BH_res_{target}'].values[0])
-                BH_rel.append(group[group['max_depth'] == depth][f'BH_rel_{target}'].values[0])
-                BH_2clip.append(group[group['max_depth'] == depth][f'BH_2clip_{target}'].values[0])
-                bon.append(group[group['max_depth'] == depth][f'Bonf_{target}'].values[0])
+                BH_res.append(group[group['max_features'] == features][f'BH_res_{target}'].values[0])
+                BH_rel.append(group[group['max_features'] == features][f'BH_rel_{target}'].values[0])
+                BH_2clip.append(group[group['max_features'] == features][f'BH_2clip_{target}'].values[0])
+                bon.append(group[group['max_features'] == features][f'Bonf_{target}'].values[0])
             else:
-                r_sq.append(group[group['max_depth'] == depth][f'r_squared'].values[0])
+                r_sq.append(group[group['max_features'] == features][f'r_squared'].values[0])
         x = idx // 4
         y = idx % 4
         if target != 'r_squared':
@@ -66,8 +66,8 @@ for (target, tname) in targets:
 
     # fig.text(0.38, 0.06, f"{t2} for different procedures, number of tests and settings")
     # fig.text(0.475, 0.08, "Noise level sigma")
-    fig.supxlabel("Max depth of the ranfom forest model")
+    fig.supxlabel("Max number of features of the ranfom forest model")
     fig.supylabel(f'{tname}')
-    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level 0.5 and 100 tests with random forest regressor with {n_estim} trees")
+    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level 0.5 (1-4) / 0.2 (5-8) and 100 tests with random forest regressor with {n_estim} trees")
     fig.legend()
-    plt.savefig(f'complexity-depth {target} {regressor} n_estim={n_estim}.png')
+    plt.savefig(f'complexity-features {target} {regressor} n_estim={n_estim}.png')

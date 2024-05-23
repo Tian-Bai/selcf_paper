@@ -17,10 +17,16 @@ n_itr = 100
 
 # hardcode the batchs
 sig_list = [0.5]
-nt_list = [100]
-set_list = [1, 2, 3, 4, 5, 6, 7, 8]
+sig_list2 = [0.2]
+
+nt_list = [500]
+set_list = [1, 2, 3, 4]
+set_list2 = [5, 6, 7, 8]
+
 seed_list = [i for i in range(0, n_itr)]
 q_list = [0.1]
+
+dim = 100
 
 # # for testing:
 # sig_list = [0.5]
@@ -32,8 +38,9 @@ q_list = [0.1]
 # regressor 
 reg_names = 'rf'
 
-n_estimators_list = [10 * i for i in range(1, 11)]
-max_depth_list = [i for i in range(1, 21)]
+n_estimators_list = [50]
+max_depth_list = [i for i in range(1, 101)]
+max_features_list = ['sqrt'] # default is sqrt
 
 n = 1000
 all_res = pd.DataFrame()
@@ -42,22 +49,23 @@ if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     print("Output diretory created!")
 
-def run(sig, ntest, set, seed, q, n_estimators, max_depth):
+def run(sig, ntest, set, seed, q, n_estimators, max_depth, max_features):
     df = pd.DataFrame()
 
     random.seed(seed)
 
-    Xtrain, Ytrain, mu_train = gen_data(set, n, sig)
-    Xcalib, Ycalib, mu_calib = gen_data(set, n, sig)
+    Xtrain, Ytrain, mu_train = gen_data(set, n, sig, dim=dim)
+    Xcalib, Ycalib, mu_calib = gen_data(set, n, sig, dim=dim)
 
+    Xtest, Ytest, mu_test = gen_data(set, ntest, sig, dim=dim)
+    true_null = sum(Ytest > 0)
     # don't consider the no true null case (rejection sampling)
-    true_null = 0
-    while true_null == 0:
-        Xtest, Ytest, mu_test = gen_data(set, ntest, sig)
-        true_null = sum(Ytest > 0)
+    # while true_null == 0:
+    #     Xtest, Ytest, mu_test = gen_data(set, ntest, sig)
+    #     true_null = sum(Ytest > 0)
     
     # random forest
-    regressor = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=0)
+    regressor = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, random_state=0)
     
     # fit (Y > 0) directly, not Y
     regressor.fit(Xtrain, 1 * (Ytrain > 0))
@@ -118,6 +126,7 @@ def run(sig, ntest, set, seed, q, n_estimators, max_depth):
                     'regressor': [reg_names],
                     'n_estim': [n_estimators],
                     'max_depth': [max_depth],
+                    'max_features': [max_features],
                     'seed': [seed],
                     'r_squared': [r_sq],
                     'BH_res_fdp': [BH_res_fdp], 
@@ -143,20 +152,28 @@ def run2(tuple):
 multiproc = True
 
 if __name__ == '__main__':
-    combined_itr = itertools.product(sig_list, nt_list, set_list, seed_list, q_list, n_estimators_list, max_depth_list)
-    total_len = len(sig_list) * len(nt_list) * len(set_list) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list)
+    combined_itr = itertools.product(sig_list, nt_list, set_list, seed_list, q_list, n_estimators_list, max_depth_list, max_features_list)
+    combined_itr2 = itertools.product(sig_list2, nt_list, set_list2, seed_list, q_list, n_estimators_list, max_depth_list, max_features_list)
+    total_len = len(sig_list) * len(nt_list) * len(set_list) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list) * len(max_features_list) 
+    total_len2 = len(sig_list2) * len(nt_list) * len(set_list2) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list) * len(max_features_list)
 
     if multiproc:
         # multiprocessing version
         with Pool(processes=8) as pool:
             results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))
+        with Pool(processes=8) as pool:
+            results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
 
         all_res = pd.concat(results, ignore_index=True)
+        all_res2 = pd.concat(results2, ignore_index=True)
+        all_res = pd.concat((all_res, all_res2), ignore_index=True)
     else:
         # regular version
-        for (a, b, c, d, e, f, g) in tqdm(combined_itr, total=total_len):
-        # for (a, b, c, d, e) in combined_itr:
-            df = run(a, b, c, d, e, f, g)
+        for (a, b, c, d, e, f, g, h) in tqdm(combined_itr, total=total_len):
+        # for (a, b, c, d, e, f, g, h) in combined_itr:
+            if c >= 5:
+                a = 0.2
+            df = run(a, b, c, d, e, f, g, h)
             all_res = pd.concat((all_res, df))
                         
-    all_res.to_csv("../csv/rf-complexity.csv")
+    all_res.to_csv("../csv/rf-features-0.5v0.2.csv")

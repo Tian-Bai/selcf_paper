@@ -10,12 +10,12 @@ import numpy as np
 import pandas as pd 
 
 
-def gen_data(setting, n, sig): 
-    X = np.random.uniform(low=-1, high=1, size=n*20).reshape((n,20))
+def gen_data(setting, n, sig, dim=20): 
+    X = np.random.uniform(low=-1, high=1, size=n*dim).reshape((n,dim))
     
     if setting == 1: 
         # mu_x = (X[:,0] * X[:,1] > 0 ) * (X[:,3]>0.5) * (0.25+X[:,3]) + (X[:,0] * X[:,1] <= 0 ) * (X[:,3]<-0.5) * (X[:,3]-0.25)
-        mu_x = (X[:,0] * X[:,1] > 0 ) * (X[:,3]*(X[:,3]>0.5) + 0.5*(X[:,3]<=0.5)) + (X[:,0] * X[:,1] <= 0 ) * (X[:,3]*(X[:,3]<-0.5) - 0.5*(X[:,3]>-0.5))
+        mu_x = (X[:,0] * X[:,1] > 0 ) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5)) + (X[:,0] * X[:,1] <= 0 ) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
         mu_x = mu_x * 4
         Y = mu_x + np.random.normal(size=n) * sig
         # plt.scatter(mu_x, Y)
