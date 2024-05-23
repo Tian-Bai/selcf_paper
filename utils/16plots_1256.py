@@ -7,7 +7,7 @@ import os
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.svm import SVR
-from utils import gen_data, BH
+from ..utils import gen_data, BH
 
 # only focus on random forest (rf)
 # only do this for setting 1, 2, 5, 6 where we have homogeneous variance
@@ -15,7 +15,7 @@ from utils import gen_data, BH
 ''' 
 1. generate the FDR and power plot as in the paper
 '''
-regressor = 'gbr' # 'rf', 'gbr', 'svm'
+regressor = 'rf' # 'rf', 'gbr', 'svm'
 
 target = 'fdp' # 'fdp', 'power'
 if target == 'power':
@@ -23,10 +23,11 @@ if target == 'power':
 elif target == 'fdp':
     t2 = 'FDP'
 
-df = pd.read_csv(f"..\\csv\\{regressor}1256withr^2.csv")
-df = df.groupby(['sigma', 'q', 'set', 'ntest', 'regressor']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
+df = pd.read_csv(f"..\\csv\\{regressor}1256avgwithr^2.csv")
+# df = df.groupby(['sigma', 'q', 'set', 'ntest', 'regressor']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
+# df.to_csv("avg.csv")
 
-df.to_csv("avg.csv")
+df = df[df['q'] == 0.1]
 
 fig, axs = plt.subplots(figsize=(10, 10), nrows = 4, ncols = 4, sharex=True, sharey=True)
 
@@ -35,6 +36,7 @@ grouped = df.groupby(['set', 'ntest'])
 # bonf_grouped = average_bonf_df.groupby(['set', 'ntest'])
 
 for (s, n), group in grouped:
+    print(group)
     BH_res = []
     BH_rel = []
     BH_2clip = []
