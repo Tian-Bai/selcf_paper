@@ -15,9 +15,16 @@ from utils import gen_data, BH
 regressor = 'rf' # 'rf', 'gbr', 'svm'
 targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
 
-df = pd.read_csv(f"..\\csv\\{regressor}-depth100.csv")
-df = df.groupby(['set', 'regressor', 'n_estim', 'max_depth', 'max_features']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
-df.to_csv("avg.csv")
+df = pd.read_csv(f"..\\csv\\{regressor}-depth1000seed.csv")
+df = df[df['dim'] == 10]
+
+df = df.groupby(['set', 'regressor', 'n_estim', 'max_depth', 'max_features', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
+df.to_csv("avg1000.csv")
+
+oracledf = pd.read_csv(f"..\\csv\\oracle.csv")
+oracledf = oracledf[oracledf['dim'] == 10]
+
+oracledf = oracledf.groupby(['set', 'regressor']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
 n_estim = 50 # 10, 20, ..., 100 or all
 if n_estim != 'all':
@@ -52,13 +59,18 @@ for (target, tname) in targets:
                 axs[x][y].plot(BH_rel, label="BH_sub")
                 axs[x][y].plot(BH_2clip, label="BH_2clip")
                 # axs[x][y].plot(bon, marker='o', label="Bonferroni")
+                axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_rel_{target}'].values[0], linestyle='--', label="BH_sub (oracle)", alpha=0.8)
+                axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_2clip_{target}'].values[0], color='orange', linestyle='--', label="BH_2clip (oracle)", alpha=0.8)
             else:
                 # axs[x][y].plot(BH_res, marker='o')
                 axs[x][y].plot(BH_rel)
                 axs[x][y].plot(BH_2clip)
                 # axs[x][y].plot(bon, marker='o')
+                axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_rel_{target}'].values[0], linestyle='--', alpha=0.8)
+                axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_2clip_{target}'].values[0], color='orange', linestyle='--', alpha=0.8)
         else:
             axs[x][y].plot(r_sq)
+            axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'r_squared'].values[0], linestyle='--', alpha=0.8)
         
         axs[x][y].set_xlabel(f'Setting {s}')
         
@@ -68,6 +80,6 @@ for (target, tname) in targets:
     # fig.text(0.475, 0.08, "Noise level sigma")
     fig.supxlabel("Max depth of the ranfom forest model")
     fig.supylabel(f'{tname}')
-    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level 0.5 and 100 tests with random forest regressor with {n_estim} trees")
+    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level 0.5 and 100 tests with random forest regressor with {n_estim} trees. 10 total features")
     fig.legend()
     plt.savefig(f'complexity-depth {target} {regressor} n_estim={n_estim}.png')

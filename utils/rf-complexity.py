@@ -13,20 +13,20 @@ from tqdm import tqdm
 from multiprocessing import Pool
 
 # how many samples to take average
-n_itr = 100
+n_itr = 1000
 
 # hardcode the batchs
 sig_list = [0.5]
 sig_list2 = [0.2]
 
-nt_list = [500]
+nt_list = [100]
 set_list = [1, 2, 3, 4]
 set_list2 = [5, 6, 7, 8]
 
 seed_list = [i for i in range(0, n_itr)]
 q_list = [0.1]
 
-dim = 100
+dim_list = [10, 100]
 
 # # for testing:
 # sig_list = [0.5]
@@ -39,7 +39,7 @@ dim = 100
 reg_names = 'rf'
 
 n_estimators_list = [50]
-max_depth_list = [i for i in range(1, 101)]
+max_depth_list = [i for i in range(1, 51)]
 max_features_list = ['sqrt'] # default is sqrt
 
 n = 1000
@@ -49,7 +49,7 @@ if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     print("Output diretory created!")
 
-def run(sig, ntest, set, seed, q, n_estimators, max_depth, max_features):
+def run(sig, dim, ntest, set, seed, q, n_estimators, max_depth, max_features):
     df = pd.DataFrame()
 
     random.seed(seed)
@@ -82,7 +82,7 @@ def run(sig, ntest, set, seed, q, n_estimators, max_depth, max_features):
     r_sq = r2_score((Ytest > 0), Ypred)
     
     # BH using residuals
-    BH_res= BH(calib_scores, test_scores, q )
+    BH_res = BH(calib_scores, test_scores, q )
     # summarize
     if len(BH_res) == 0:
         BH_res_fdp = 0
@@ -120,6 +120,7 @@ def run(sig, ntest, set, seed, q, n_estimators, max_depth, max_features):
     
     df = pd.DataFrame({
                     'sigma': [sig],
+                    'dim': [dim],
                     'q': [q],
                     'set': [set],
                     'ntest': [ntest],
@@ -152,10 +153,10 @@ def run2(tuple):
 multiproc = True
 
 if __name__ == '__main__':
-    combined_itr = itertools.product(sig_list, nt_list, set_list, seed_list, q_list, n_estimators_list, max_depth_list, max_features_list)
-    combined_itr2 = itertools.product(sig_list2, nt_list, set_list2, seed_list, q_list, n_estimators_list, max_depth_list, max_features_list)
-    total_len = len(sig_list) * len(nt_list) * len(set_list) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list) * len(max_features_list) 
-    total_len2 = len(sig_list2) * len(nt_list) * len(set_list2) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list) * len(max_features_list)
+    combined_itr = itertools.product(sig_list, dim_list, nt_list, set_list, seed_list, q_list, n_estimators_list, max_depth_list, max_features_list)
+    combined_itr2 = itertools.product(sig_list2, dim_list, nt_list, set_list2, seed_list, q_list, n_estimators_list, max_depth_list, max_features_list)
+    total_len = len(sig_list) * len(dim_list) * len(nt_list) * len(set_list) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list) * len(max_features_list) 
+    total_len2 = len(sig_list2) * len(dim_list) * len(nt_list) * len(set_list2) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list) * len(max_features_list)
 
     if multiproc:
         # multiprocessing version
@@ -176,4 +177,4 @@ if __name__ == '__main__':
             df = run(a, b, c, d, e, f, g, h)
             all_res = pd.concat((all_res, df))
                         
-    all_res.to_csv("../csv/rf-features-0.5v0.2.csv")
+    all_res.to_csv("../csv/rf-depth.csv")
