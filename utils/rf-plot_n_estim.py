@@ -9,15 +9,11 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.svm import SVR
 from utils import gen_data, BH
 
-# only focus on random forest (rf)
-# only do this for setting 1, 2, 5, 6 where we have homogeneous variance
-
 regressor = 'rf' # 'rf', 'gbr', 'svm'
 targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
 
 df = pd.read_csv(f"..\\csv\\{regressor}-complexityavg.csv")
 # df = df.groupby(['set', 'regressor', 'n_estim', 'max_depth']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
-# df.to_csv("avg.csv")
 
 depth = 10 # 1, 2, ..., 20 or all
 if depth != 'all':

@@ -14,12 +14,12 @@ from utils import gen_data, BH
 
 regressor = 'rf' # 'rf', 'gbr', 'svm'
 targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
+targets = [('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')]
 
 df = pd.read_csv(f"..\\csv\\{regressor}-depth1000seed.csv")
 df = df[df['dim'] == 10]
 
 df = df.groupby(['set', 'regressor', 'n_estim', 'max_depth', 'max_features', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
-df.to_csv("avg1000.csv")
 
 oracledf = pd.read_csv(f"..\\csv\\oracle.csv")
 oracledf = oracledf[oracledf['dim'] == 10]
@@ -33,8 +33,10 @@ if n_estim != 'all':
 grouped = df.groupby(['set'])
 # bonf_grouped = average_bonf_df.groupby(['set', 'ntest'])
 
+fig, axs = plt.subplots(figsize=(20, 10), nrows = 2, ncols = 4, sharex=True, sharey=True)
+
 for (target, tname) in targets:
-    fig, axs = plt.subplots(figsize=(20, 10), nrows = 2, ncols = 4, sharex=True, sharey=True)
+    # fig, axs = plt.subplots(figsize=(20, 10), nrows = 2, ncols = 4, sharex=True, sharey=True)
     idx = 0
 
     for (s,), group in grouped:
@@ -44,6 +46,8 @@ for (target, tname) in targets:
         bon = []
         r_sq = []
         for depth in sorted(group['max_depth'].unique()):
+            if depth > 20:
+                continue
             if target != 'r_squared':
                 BH_res.append(group[group['max_depth'] == depth][f'BH_res_{target}'].values[0])
                 BH_rel.append(group[group['max_depth'] == depth][f'BH_rel_{target}'].values[0])
@@ -69,8 +73,17 @@ for (target, tname) in targets:
                 axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_rel_{target}'].values[0], linestyle='--', alpha=0.8)
                 axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_2clip_{target}'].values[0], color='orange', linestyle='--', alpha=0.8)
         else:
-            axs[x][y].plot(r_sq)
-            axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'r_squared'].values[0], linestyle='--', alpha=0.8)
+            axs2 = axs[x][y].twinx()
+            # axs[x][y].plot(r_sq)
+            # axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'r_squared'].values[0], linestyle='--', alpha=0.8)
+            if idx == 0:
+                axs2.plot(r_sq, color='green', linestyle='-.', alpha=0.6, label='R^2')
+            else:
+                axs2.plot(r_sq, color='green', linestyle='-.', alpha=0.6)
+            # if idx == 0:
+            #     axs2.axhline(y=oracledf[oracledf['set'] == s][f'r_squared'].values[0], linestyle='--', alpha=0.8, label='R^2')
+            # else:
+            #     axs2.axhline(y=oracledf[oracledf['set'] == s][f'r_squared'].values[0], linestyle='--', alpha=0.8)
         
         axs[x][y].set_xlabel(f'Setting {s}')
         
@@ -79,7 +92,7 @@ for (target, tname) in targets:
     # fig.text(0.38, 0.06, f"{t2} for different procedures, number of tests and settings")
     # fig.text(0.475, 0.08, "Noise level sigma")
     fig.supxlabel("Max depth of the ranfom forest model")
-    fig.supylabel(f'{tname}')
-    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level 0.5 and 100 tests with random forest regressor with {n_estim} trees. 10 total features")
+    fig.supylabel(f'Number of rejections')
+    fig.suptitle(f"{tname} and number of rejections for different procedures and settings with control level 0.1, noise level 0.5 and 100 tests with random forest regressor with {n_estim} trees. 10 total features")
     fig.legend()
-    plt.savefig(f'complexity-depth {target} {regressor} n_estim={n_estim}.png')
+plt.savefig(f'complexity-depth {target} {regressor} n_estim={n_estim}.png')

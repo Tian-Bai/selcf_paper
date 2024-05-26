@@ -17,7 +17,6 @@ targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'),
 
 df = pd.read_csv(f"..\\csv\\{regressor}-features-0.5v0.2.csv")
 df = df.groupby(['set', 'regressor', 'n_estim', 'max_depth', 'max_features']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
-df.to_csv("avg.csv")
 
 n_estim = 50
 if n_estim != 'all':

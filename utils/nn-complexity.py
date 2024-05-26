@@ -5,6 +5,7 @@ import sys
 import os
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.neural_network import MLPRegressor
 from sklearn.svm import SVR
 from sklearn.metrics import r2_score
 from utils import gen_data, BH, Bonferroni
@@ -13,7 +14,7 @@ from tqdm import tqdm
 from multiprocessing import Pool
 
 # how many samples to take average
-n_itr = 1000
+n_itr = 100
 
 # hardcode the batchs
 sig_list = [0.5]
@@ -25,15 +26,12 @@ set_list2 = [5, 6, 7, 8]
 
 seed_list = [i for i in range(0, n_itr)]
 q_list = [0.1]
-
 dim_list = [20]
 
 # regressor 
-reg_names = 'rf'
+reg_names = 'mlp'
 
-n_estimators_list = [50]
-max_depth_list = [i for i in range(1, 51)]
-max_features_list = ['sqrt'] # default is sqrt
+hidden_list = [i for i in range(1, 301, 10)]
 
 n = 1000
 all_res = pd.DataFrame()
@@ -42,7 +40,7 @@ if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     print("Output diretory created!")
 
-def run(sig, dim, ntest, set, seed, q, n_estimators, max_depth, max_features):
+def run(sig, dim, ntest, set, seed, q, hidden):
     df = pd.DataFrame()
 
     random.seed(seed)
@@ -57,8 +55,8 @@ def run(sig, dim, ntest, set, seed, q, n_estimators, max_depth, max_features):
     #     Xtest, Ytest, mu_test = gen_data(set, ntest, sig)
     #     true_null = sum(Ytest > 0)
     
-    # random forest
-    regressor = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, random_state=0)
+    # MLP with 1 hidden layer
+    regressor = MLPRegressor(hidden_layer_sizes=(hidden, ), random_state=0, alpha=3e-2, max_iter=500)
     
     # fit (Y > 0) directly, not Y
     regressor.fit(Xtrain, 1 * (Ytrain > 0))
@@ -118,9 +116,8 @@ def run(sig, dim, ntest, set, seed, q, n_estimators, max_depth, max_features):
                     'set': [set],
                     'ntest': [ntest],
                     'regressor': [reg_names],
-                    'n_estim': [n_estimators],
-                    'max_depth': [max_depth],
-                    'max_features': [max_features],
+                    'layers': [1],
+                    'hidden': [hidden],
                     'seed': [seed],
                     'r_squared': [r_sq],
                     'BH_res_fdp': [BH_res_fdp], 
@@ -146,16 +143,16 @@ def run2(tuple):
 multiproc = True
 
 if __name__ == '__main__':
-    combined_itr = itertools.product(sig_list, dim_list, nt_list, set_list, seed_list, q_list, n_estimators_list, max_depth_list, max_features_list)
-    combined_itr2 = itertools.product(sig_list2, dim_list, nt_list, set_list2, seed_list, q_list, n_estimators_list, max_depth_list, max_features_list)
-    total_len = len(sig_list) * len(dim_list) * len(nt_list) * len(set_list) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list) * len(max_features_list) 
-    total_len2 = len(sig_list2) * len(dim_list) * len(nt_list) * len(set_list2) * len(seed_list) * len(q_list) * len(n_estimators_list) * len(max_depth_list) * len(max_features_list)
+    combined_itr = itertools.product(sig_list, dim_list, nt_list, set_list, seed_list, q_list, hidden_list)
+    combined_itr2 = itertools.product(sig_list2, dim_list, nt_list, set_list2, seed_list, q_list, hidden_list)
+    total_len = len(sig_list) * len(dim_list) * len(nt_list) * len(set_list) * len(seed_list) * len(q_list) * len(hidden_list)
+    total_len2 = len(sig_list2) * len(dim_list) * len(nt_list) * len(set_list2) * len(seed_list) * len(q_list) * len(hidden_list)
 
     if multiproc:
         # multiprocessing version
-        with Pool(processes=8) as pool:
+        with Pool(processes=6) as pool:
             results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))
-        with Pool(processes=8) as pool:
+        with Pool(processes=6) as pool:
             results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
 
         all_res = pd.concat(results, ignore_index=True)
@@ -170,4 +167,4 @@ if __name__ == '__main__':
             df = run(a, b, c, d, e, f, g, h)
             all_res = pd.concat((all_res, df))
                         
-    all_res.to_csv(f"../csv/rf-complexity itr:{n_itr} reg:{reg_names} .csv")
+    all_res.to_csv(f"../csv/nn-hidden itr:{n_itr} sigma=0.5(4)/0.2(4) hidden=1~300.csv")
