@@ -2,6 +2,8 @@
 *.png
 *.zip
 /log
+/pic 
+/oldpic
 
 # History files
 .Rhistory
