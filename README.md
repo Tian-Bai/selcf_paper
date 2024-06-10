@@ -13,7 +13,7 @@ This repository is forked from the original repository for the paper [Selection 
 
 ## Sample arguments
 
-python -u "d:\Github\selcf_paper\utils\gendata-model.py" -i 1000 -d 20 -n 100 mlp layers -r 1,21,1 hidden:8
-python -u "d:\Github\selcf_paper\utils\plot-model.py" -i 1000 -d 10 -n 100 rf max_depth -r 1,51,1 n_estim:50,max_features:sqrt
-python -u "d:\Github\selcf_paper\utils\plot-trendcomparison.py" -i 1000 -d 20 -n 100 mlp layers -r 1,11,1 hidden:8
+python -u "d:\Github\selcf_paper\utils\gendata-model.py" -i 1000 -d 20 -n 100 mlp layers -r 1,21,1 hidden:8 \\
+python -u "d:\Github\selcf_paper\utils\plot-model.py" -i 1000 -d 10 -n 100 rf max_depth -r 1,51,1 n_estim:50,max_features:sqrt \\
+python -u "d:\Github\selcf_paper\utils\plot-trendcomparison.py" -i 1000 -d 20 -n 100 mlp layers -r 1,11,1 hidden:8 \\
 python -u "d:\Github\selcf_paper\utils\gendata-oracle.py" -i 1000 -d 20 -n 100
