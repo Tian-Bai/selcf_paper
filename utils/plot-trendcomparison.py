@@ -147,7 +147,7 @@ for (target, tname) in targets:
             # axs[x][y].plot(BH_res, marker='o', label="BH_res")
             axs[x][y].plot(np.arange(*xrange), BH_rel, label="BH_sub")
             axs[x][y].plot(np.arange(*xrange), BH_2clip, label="BH_2clip")
-            axs2.plot(np.arange(*xrange), r_sq, color='green', linestyle='--', linewidth=5, alpha=0.6, label='R^2')
+            axs2.plot(np.arange(*xrange), r_sq, color='green', linestyle='-', linewidth=5, alpha=0.6, label='R^2')
 
             axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_rel_{target}'].values[0], linestyle='--', label='BH_sub (oracle)', alpha=0.8)
             axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_2clip_{target}'].values[0], linestyle='--', label='BH_2clip (oracle)', alpha=0.8, color='orange')
@@ -157,7 +157,7 @@ for (target, tname) in targets:
             axs[x][y].plot(np.arange(*xrange), BH_rel)
             axs[x][y].plot(np.arange(*xrange), BH_2clip)
             # axs[x][y].plot(bon, marker='o')
-            axs2.plot(np.arange(*xrange), r_sq, color='green', linestyle='--', linewidth=5, alpha=0.6)
+            axs2.plot(np.arange(*xrange), r_sq, color='green', linestyle='-', linewidth=5, alpha=0.6)
 
             axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_rel_{target}'].values[0], linestyle='--', alpha=0.8)
             axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_2clip_{target}'].values[0], linestyle='--', alpha=0.8, color='orange')
@@ -165,6 +165,6 @@ for (target, tname) in targets:
         idx += 1
     fig.supxlabel(f"{regressor} - {xaxis}")
     fig.supylabel(f'{tname}')
-    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma} and {itr} tests with {regressor} regressor. {ntest} tests and {dim} total features")
+    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma} \n and {itr} tests with {regressor} regressor. {ntest} tests and {dim} total features")
     fig.legend()
     plt.savefig(f'{regressor}-trendcomp {target} {xrange[0]},{xrange[1]},{xrange[2]} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
