@@ -7,6 +7,8 @@ import os
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.svm import SVR
 from sklearn.metrics import r2_score
 from utils import gen_data, BH, Bonferroni, OracleRegressor
@@ -15,16 +17,18 @@ import itertools
 from multiprocessing import Pool
 from tqdm import tqdm
 
-parser = argparse.ArgumentParser(description='Generate data for oracle regressor experiment.')
+parser = argparse.ArgumentParser(description='Generate data for linear regressor experiment.')
 parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests (seeds)', default=1000)
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=20)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
+parser.add_argument('--interaction', dest='interaction', type=bool, help='whether including interaction terms in the linear model', default=False)
 
 args = parser.parse_args()
 
 itr = args.itr
 ntest = args.ntest
+interaction = args.interaction
 sigma = '0.5(4)-0.2(4)'
 dim = args.dim
 q = 0.1
@@ -39,9 +43,10 @@ set_list2 = [5, 6, 7, 8]
 seed_list = [i for i in range(0, itr)]
 
 n = 1000 # train size
+spec = "interaction" if interaction else "simple"
 all_res = pd.DataFrame()
-out_dir = f"..\\csv\\oracle"
-full_out_dir = f"..\\csv\\oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+out_dir = f"..\\csv\\linear\\{spec}"
+full_out_dir = f"..\\csv\\linear\\{spec}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
@@ -61,11 +66,35 @@ def run(sig, setting, seed, **kwargs):
     #     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig)
     #     true_null = sum(Ytest > 0)
 
-    # oracle regressor
-    reg = OracleRegressor(setting)
-    
-    # fit (Y > 0) directly, not Y
-    reg.fit(Xtrain, 1 * (Ytrain > 0))
+    # linear regressor
+    if not interaction:
+        reg = LinearRegression()
+        # fit (Y > 0) directly, not Y
+        reg.fit(Xtrain, 1 * (Ytrain > 0))
+    else:
+        # augment the data with interaction
+        # 2 choices: whether use the interaction in an oracle way, or add all interactions
+        # poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
+        # Xtrain = poly.fit_transform(Xtrain)
+        # Xcalib = poly.fit_transform(Xcalib)
+        # Xtest = poly.fit_transform(Xtest)
+
+        # or: add the interaction in an oracle way
+        if setting == 1:
+            transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 2], x[:, 1] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2]))
+        if setting in [2, 3, 4]:
+            transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1]))
+        if setting == 5:
+            transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 3], x[:, 1] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]))
+        if setting in [6, 7, 8]:
+            transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1]))
+
+        Xtrain = transf(Xtrain)
+        Xcalib = transf(Xcalib)
+        Xtest = transf(Xtest)
+        
+        reg = LinearRegression()
+        reg.fit(Xtrain, 1 * (Ytrain > 0))
     
     # calibration 
     calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
@@ -121,7 +150,7 @@ def run(sig, setting, seed, **kwargs):
             'q': [q],
             'set': [setting],
             'ntest': [ntest],
-            'regressor': "oracle",
+            'regressor': f"linear-{spec}",
             'seed': [seed],
             'r_squared': [r_sq],
             'BH_res_fdp': [BH_res_fdp], 

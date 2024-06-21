@@ -165,6 +165,6 @@ for (target, tname) in targets:
         idx += 1
     fig.supxlabel(f"{regressor} - {xaxis}")
     fig.supylabel(f'{tname}')
-    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma} \n and {itr} tests with {regressor} regressor. {ntest} tests and {dim} total features")
+    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma} with {regressor} regressor. \n {ntest} tests and {dim} total features, averaged over {itr} times")
     fig.legend()
     plt.savefig(f'{regressor}-trendcomp {target} {xrange[0]},{xrange[1]},{xrange[2]} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
