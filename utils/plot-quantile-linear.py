@@ -18,21 +18,18 @@ parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=20)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
-parser.add_argument('--interaction', dest='interaction', type=bool, help='whether including interaction terms in the linear model', default=False)
 
 args = parser.parse_args()
 
 itr = args.itr
 ntest = args.ntest
-interaction = args.interaction
 sigma = '0.5(4)-0.2(4)'
 dim = args.dim
 q = 0.1
-spec = "interaction" if interaction else "simple"
 
 targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
 
-df = pd.read_csv(f"..\\csv\\linear\\{spec}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+df = pd.read_csv(f"..\\csv\\quantile-linear\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 
 df = df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
@@ -75,6 +72,6 @@ for (target, tname) in targets:
     # fig.text(0.475, 0.08, "Noise level sigma")
     fig.supxlabel("For comparison")
     fig.supylabel(f'{tname}')
-    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma} with linear-{spec} regressor. \n {ntest} tests and {dim} total features, averaged over {itr} times.")
+    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma} with quantile-linear regressor. \n {ntest} tests and {dim} total features, averaged over {itr} times.")
     fig.legend()
-    plt.savefig(f'linear-{spec} {target} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
+    plt.savefig(f'quantile_linear {target} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')

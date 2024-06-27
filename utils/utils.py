@@ -9,6 +9,8 @@ Created on Mon Apr  4 09:54:03 2022
 import numpy as np
 import pandas as pd 
 from sklearn.linear_model import LinearRegression
+import torch
+import torch.nn as nn
 
 class OracleRegressor():
     def __init__(self, setting: int):
@@ -43,6 +45,37 @@ class OracleRegressor():
 
     def predict(self, X):
         return self.model.predict(self.extract(X))
+    
+
+# for deep learning quantile regressors, need to write manually with torch
+''' 
+alpha: lower quantile
+dropout_p: dropout probability in every layer
+'''
+class MLPQuantileRegressor(nn.Module):
+    def __init__(self, alpha, in_channel, out_channel, layers=[16, 16, 16], dropout_p=0.1):
+        super().__init__()
+        self.layers = layers
+
+        dims = [in_channel] + layers + [out_channel]
+        modules = []
+        for i in range(len(dims) - 1):
+            modules.append(
+                nn.Sequential(
+                    nn.Linear(dims[i], dims[i+1]),
+                    nn.Dropout(p=dropout_p), # regularization
+                    nn.ReLU(),
+                )
+            )
+        self.mlp = nn.Sequential(*modules)
+
+    def forward(self, input):
+        return self.mlp(input)
+    
+    def loss(self, y, q_pred):
+        error = y - q_pred
+        # pinball loss
+        return torch.mean(torch.max(self.alpha * error, (self.alpha - 1) * error))
 
 
 def gen_data(setting, n, sig, dim=20): 
