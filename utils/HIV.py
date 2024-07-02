@@ -13,6 +13,7 @@ from pygam import LinearGAM, s, te
 from pygam.terms import TermList
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
+from multiprocessing import Pool
 
 rf_param = ['n_estim', 'max_depth', 'max_features']
 mlp_param = ['hidden', 'layers']
@@ -91,7 +92,7 @@ def conformal_select(calib_scores, test_scores, q = 0.1):
     ntest = len(test_scores)
     ncalib = len(calib_scores)
     pvals = np.zeros(ntest)
-    
+
     for j in range(ntest):
         pvals[j] = (np.sum(calib_scores < test_scores[j]) + np.random.uniform(size=1)[0] * (np.sum(calib_scores == test_scores[j]) + 1)) / (ncalib+1)
          
@@ -108,7 +109,7 @@ def conformal_select(calib_scores, test_scores, q = 0.1):
         idx_sel = np.array(df_test.index[range(np.max(idx_smaller))])
         s_th = df_test.iloc[idx_smaller, 3]
         return idx_sel, pvals
-    
+
 def eval_sel(sel_idx, ys, cs):
     if len(sel_idx) == 0:
         fdp = 0
@@ -138,9 +139,10 @@ X_drugs, y, drugs_index = dataset.load_HIV(path = './data')
 drug_encoding = 'Morgan'
 
 n = len(y)
-all_df = pd.DataFrame(columns=['q', 'seed', 'calib_size', 'test_size', 'BH_res_fdp', 'BH_res_power', 'BH_sub_fdp', 'BH_sub_power', 'BH_clip_fdp', 'BH_clip_power'])
 
-for i in tqdm(range(args.itr)):
+seed_list = [i for i in range(0, args.itr)]
+
+def run(seed):
     reind = np.random.permutation(n)
     X_drugs_train = X_drugs[reind[0:int(n*0.4+1)]]
     y_train = y[reind[0:int(n*0.4+1)]]
@@ -151,12 +153,12 @@ for i in tqdm(range(args.itr)):
         ttrain, tval, ttest = utils.data_process(X_drug = X_drugs_train, y = y_train, 
                                                 drug_encoding = drug_encoding,
                                                 split_method='random', frac=[0.7, 0.1, 0.2],
-                                                random_seed = i)
-        
+                                                random_seed = seed)
+
         dother = utils.data_process(X_drug = X_drugs_other, y = y_other, 
                                             drug_encoding = drug_encoding,
                                             split_method='no_split',
-                                            random_seed = i)
+                                            random_seed = seed)
     # USING CUSTOM PREDICTOR
     ttrain_label = ttrain.Label.to_numpy()
     # use np.stack to transform a 1d array of np arrays to a 2d np array
@@ -191,7 +193,7 @@ for i in tqdm(range(args.itr)):
         model = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
         model.fit(ttrain_predictor, ttrain_label)
         all_pred = model.predict(dother_predictor)
-        
+
     # USING DEEPPURPOSE:
     # temporarily block print output
     # with suppress_print():
@@ -222,11 +224,11 @@ for i in tqdm(range(args.itr)):
     y_test = np.array(dtest["Label"])
 
     c = 0
-    
+
     calib_scores_res = y_calib - hat_mu_calib
     calib_scores_sub = - hat_mu_calib 
     calib_scores_clip = 100 * (y_calib > c) + c * (y_calib <= c) - hat_mu_calib
-    
+
     test_scores = c - hat_mu_test
 
     q = 0.1 # nominal level
@@ -241,7 +243,7 @@ for i in tqdm(range(args.itr)):
 
     output_dict = {
         'q': [q], 
-        'seed': [i], 
+        'seed': [seed], 
         'calib_size': [len(y_calib)], 
         'test_size': [len(y_test)], 
         'BH_res_fdp': [BH_res_fdp], 
@@ -251,6 +253,15 @@ for i in tqdm(range(args.itr)):
         'BH_clip_fdp': [BH_clip_fdp], 
         'BH_clip_power': [BH_clip_power]
     }
-    all_df = pd.concat((all_df, pd.DataFrame(output_dict)), ignore_index=True)
+    df = pd.DataFrame(output_dict)
+    return df
 
-all_df.to_csv(full_out_dir)
+if __name__ == '__main__':
+    combined_itr = seed_list
+    total_len = len(seed_list)
+
+    with Pool(processes=6) as pool:
+        results = list(tqdm(pool.imap(run, combined_itr), total=total_len))
+
+    all_res = pd.concat(results, ignore_index=True)
+    all_res.to_csv(full_out_dir)
