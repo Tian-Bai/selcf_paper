@@ -4,6 +4,8 @@
 /log
 /pic 
 /oldpic
+/utils/data 
+/utils/result
 
 # History files
 .Rhistory

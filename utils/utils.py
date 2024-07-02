@@ -126,6 +126,49 @@ def gen_data(setting, n, sig, dim=20):
         Y = mu_x + np.random.normal(size=n) * sig_x * sig
         return X, Y, mu_x
 
+def gen_data_2d(setting, n, sig, dim=20):
+    X = np.random.uniform(low=-1, high=1, size=n*dim).reshape((n,dim))
+    # generate a multivariate case
+    if setting == 1:
+        mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5)) + (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
+        mu_x2 = (X[:,1] * X[:,2] > 0) * (X[:,0] * (X[:,0] > 0.5) + 0.5 * (X[:,2] <= 0.5)) + (X[:,1] * X[:,2] <= 0) * (X[:,2] * (X[:,1] < -0.5) - 0.5 * (X[:,1] > -0.5))
+        mean = np.column_stack((mu_x1, mu_x2))
+        cov = [[      sig, 0 * sig],
+               [0 * sig,       sig]]
+        rng = np.random.default_rng(33)
+        Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        return X, Y, mu_x1, mu_x2, cov
+    
+    if setting == 2:
+        mu_x1 = (X[:,0] * X[:,1] + np.exp(X[:,3] - 1)) * 5
+        mu_x2 = (X[:,1] * X[:,2] + np.exp(X[:,0] - 1)) * 5
+        mean = np.column_stack((mu_x1, mu_x2))
+        cov = [[      sig, 0 * sig],
+               [0 * sig,       sig]]
+        rng = np.random.default_rng(33)
+        Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        return X, Y, mu_x1, mu_x2, cov
+    
+    if setting == 5:
+        mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3]) + (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
+        mu_x2 = (X[:,2] * X[:,1] > 0) * (X[:,0] > 0.5) * (0.25 + X[:,0]) + (X[:,2] * X[:,1] <= 0) * (X[:,0] < -0.5) * (X[:,0] - 0.25)
+        mean = np.column_stack((mu_x1, mu_x2))
+        cov = [[      sig, 0 * sig],
+               [0 * sig,       sig]]
+        rng = np.random.default_rng(33)
+        Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        return X, Y, mu_x1, mu_x2, cov
+    
+    if setting == 6:
+        mu_x1 = (X[:,0] * X[:,1] + X[:,2] ** 2 + np.exp(X[:,3] - 1) - 1) * 2
+        mu_x2 = (X[:,3] * X[:,1] + X[:,0] ** 2 + np.exp(X[:,2] - 1) - 1) * 2
+        mean = np.column_stack((mu_x1, mu_x2))
+        cov = [[      sig, 0 * sig],
+               [0 * sig,       sig]]
+        rng = np.random.default_rng(33)
+        Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        return X, Y, mu_x1, mu_x2, cov
+
 def BH(calib_scores, test_scores, q = 0.1):
     ntest = len(test_scores)
     ncalib = len(calib_scores)

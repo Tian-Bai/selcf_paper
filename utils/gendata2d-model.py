@@ -11,7 +11,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.svm import SVR
 from sklearn.metrics import r2_score
-from utils import gen_data, BH, Bonferroni
+from utils import gen_data, gen_data_2d, BH, Bonferroni
 import argparse
 import itertools
 from multiprocessing import Pool
@@ -124,10 +124,10 @@ parser_mlp.add_argument('config', type=mlp_config, help='other configurations of
 
 # for below two regressors, linear and additive, we allow choosing between whether to use interaction between the terms, and whether the interaction terms are 'oracle'.
 # linear parser
-parser_linear.add_argument('--interaction', dest='interaction', type=interaction_type, help='whether including interaction terms in the linear model')
+parser_linear.add_argument('--interaction', dest='interaction', type=interaction_type, help='whether including interaction terms in the linear model', default=False)
 
 # additive parser
-parser_additive.add_argument('--interaction', dest='interaction', type=interaction_type, help='whether including interaction terms in the additive model')
+parser_additive.add_argument('--interaction', dest='interaction', type=interaction_type, help='whether including interaction terms in the additive model', default=False)
 
 args = parser.parse_args()
 
@@ -142,8 +142,8 @@ q = 0.1
 sig_list = [0.5]
 sig_list2 = [0.2]
 
-set_list = [1, 2, 3, 4]
-set_list2 = [5, 6, 7, 8]
+set_list = [1, 2]
+set_list2 = [5, 6]
 
 seed_list = [i for i in range(0, itr)]
 
@@ -157,8 +157,8 @@ if regressor == 'rf':
 
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
-    out_dir = f"..\\csv\\{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv2d\\{regressor}\\{xaxis}"
+    full_out_dir = f"..\\csv2d\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 elif regressor == 'mlp':
     xaxis = args.xaxis
     xrange = args.range
@@ -166,17 +166,29 @@ elif regressor == 'mlp':
 
     mlp_param2 = [r for r in mlp_param]
     mlp_param2.remove(xaxis)
-    out_dir = f"..\\csv\\{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv2d\\{regressor}\\{xaxis}"
+    full_out_dir = f"..\\csv2d\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
-    out_dir = f"..\\csv\\{regressor}\\interaction={interaction}"
-    full_out_dir = f"..\\csv\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv2d\\{regressor}\\interaction={interaction}"
+    full_out_dir = f"..\\csv2d\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     print("Output diretory created!")
+
+''' 
+distance from a point (y1, y2) to the set R^2/Q1.
+'''
+def dist(Y):
+    l = []
+    for i in range(len(Y)):
+        if Y[i, 0] >= 0 and Y[i, 1] >= 0:
+            l.append(max(Y[i, 0], Y[i, 1]))
+        else:
+            l.append(0)
+    return np.array(l)
 
 def run(sig, setting, seed, **kwargs):
     if regressor == 'rf':
@@ -189,11 +201,14 @@ def run(sig, setting, seed, **kwargs):
     df = pd.DataFrame()
     random.seed(seed)
 
-    Xtrain, Ytrain, mu_train = gen_data(setting, n, sig, dim=dim)
-    Xcalib, Ycalib, mu_calib = gen_data(setting, n, sig, dim=dim)
+    Xtrain, Ytrain, mu1_train, mu2_train, cov_train = gen_data_2d(setting, n, sig, dim=dim)
+    Xcalib, Ycalib, mu1_calib, mu2_calib, cov_calib = gen_data_2d(setting, n, sig, dim=dim)
 
-    Xtest, Ytest, mu_test = gen_data(setting, ntest, sig, dim=dim)
-    true_null = sum(Ytest > 0)
+    Xtest, Ytest, mu1_test, mu2_test, cov_test = gen_data_2d(setting, ntest, sig, dim=dim)
+
+    # suppose the null hypothesis is Y1 or Y2 <= 0
+    true_null = sum((Ytest[:, 0] > 0) & (Ytest[:, 1] > 0))
+
     # don't consider the no true null case (rejection sampling)
     # while true_null == 0:
     #     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig)
@@ -220,14 +235,14 @@ def run(sig, setting, seed, **kwargs):
             Xtest = poly.fit_transform(Xtest)
             reg = LinearRegression()
         elif kwargs["interaction"] == "oracle":
-            if setting == 1:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 2], x[:, 1] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2]))
-            if setting in [2, 3, 4]:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1]))
+            if setting in [1, 2]:
+                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 2]))
             if setting == 5:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 3], x[:, 1] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]))
-            if setting in [6, 7, 8]:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1]))
+                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 2], x[:, 0] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2],
+                                                        x[:, 0] * x[:, 1], x[:, 1] * x[:, 3], x[:, 0] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]))
+            if setting == 6:
+                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 3]))
+
             Xtrain = transf(Xtrain)
             Xcalib = transf(Xcalib)
             Xtest = transf(Xtest)
@@ -249,29 +264,30 @@ def run(sig, setting, seed, **kwargs):
             tm_list = TermList()
             for i in range(4): # alternatively, use 4 here
                 tm_list += s(i)
-            if setting == 1:
-                tm_list += te(0, 1, 2)
-            if setting in [2, 3, 4]:
+            if setting in [1, 2]:
                 tm_list += te(0, 1)
+                tm_list += te(1, 2)
             if setting == 5:
+                tm_list += te(0, 1, 2)
                 tm_list += te(0, 1, 3)
-            if setting in [6, 7, 8]:
+            if setting == 6:
                 tm_list += te(0, 1)
+                tm_list += te(1, 3)
             reg = LinearGAM(tm_list)
     
-    # fit (Y > 0) directly, not Y
-    reg.fit(Xtrain, 1 * (Ytrain > 0))
+    # fit Y
+    reg.fit(Xtrain, Ytrain)
+    Ypred_calib = reg.predict(Xcalib)
     
     # calibration 
-    calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
-    calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
-    calib_scores_clip = Ycalib * (Ycalib > 0) - reg.predict(Xcalib)
-    calib_scores_2clip = 1000 * (Ycalib > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
-    
-    Ypred = reg.predict(Xtest) 
-    test_scores = -Ypred
+    calib_scores = dist(Ycalib) - dist(Ypred_calib)                                       # BH_res
+    calib_scores0 = - dist(Ypred_calib)                                                   # BH_sub
+    calib_scores_2clip = 1000 * dist(Ycalib) - dist(Ypred_calib)                          # BH_clip (with M = 1000)
 
-    r_sq = r2_score((Ytest > 0), Ypred)
+    Ypred = reg.predict(Xtest) 
+    test_scores = - dist(Ypred)
+
+    r_sq = r2_score(Ytest, Ypred)
     
     # BH using residuals
     BH_res = BH(calib_scores, test_scores, q )
@@ -280,17 +296,17 @@ def run(sig, setting, seed, **kwargs):
         BH_res_fdp = 0
         BH_res_power = 0
     else:
-        BH_res_fdp = np.sum(Ytest[BH_res] <= 0) / len(BH_res)
-        BH_res_power = np.sum(Ytest[BH_res] > 0) / true_null if true_null != 0 else 0
+        BH_res_fdp = np.sum((Ytest[BH_res][:, 0] <= 0) | (Ytest[BH_res][:, 1] <= 0)) / len(BH_res)
+        BH_res_power = np.sum((Ytest[BH_res][:, 0] > 0) & (Ytest[BH_res][:, 1] > 0)) / true_null if true_null != 0 else 0
         
     # only use relevant samples to calibrate
-    BH_rel = BH(calib_scores0[Ycalib <= 0], test_scores, q )
+    BH_rel = BH(calib_scores0[(Ycalib[:, 0] <= 0) | (Ycalib[:, 1] <= 0)], test_scores, q )
     if len(BH_rel) == 0:
         BH_rel_fdp = 0
         BH_rel_power = 0
     else:
-        BH_rel_fdp = np.sum(Ytest[BH_rel] <= 0) / len(BH_rel)
-        BH_rel_power = np.sum(Ytest[BH_rel] > 0) / true_null if true_null != 0 else 0
+        BH_rel_fdp = np.sum((Ytest[BH_rel][:, 0] <= 0) | (Ytest[BH_rel][:, 1] <= 0)) / len(BH_rel)
+        BH_rel_power = np.sum((Ytest[BH_rel][:, 0] > 0) & (Ytest[BH_rel][:, 1] > 0)) / true_null if true_null != 0 else 0
         
     # use clipped scores
     BH_2clip = BH(calib_scores_2clip, test_scores, q )
@@ -298,8 +314,8 @@ def run(sig, setting, seed, **kwargs):
         BH_2clip_fdp = 0
         BH_2clip_power = 0
     else:
-        BH_2clip_fdp = np.sum(Ytest[BH_2clip] <= 0) / len(BH_2clip)
-        BH_2clip_power = np.sum(Ytest[BH_2clip] > 0) / true_null if true_null != 0 else 0
+        BH_2clip_fdp = np.sum((Ytest[BH_2clip][:, 0] <= 0) | (Ytest[BH_2clip][:, 1] <= 0)) / len(BH_2clip)
+        BH_2clip_power = np.sum((Ytest[BH_2clip][:, 0] > 0) & (Ytest[BH_2clip][:, 1] > 0)) / true_null if true_null != 0 else 0
 
     # Bonferroni
     Bonf = Bonferroni(calib_scores_2clip, test_scores, q )
@@ -307,8 +323,8 @@ def run(sig, setting, seed, **kwargs):
         Bonf_fdp = 0
         Bonf_power = 0
     else:
-        Bonf_fdp = np.sum(Ytest[Bonf] <= 0) / len(Bonf)
-        Bonf_power = np.sum(Ytest[Bonf] > 0) / true_null if true_null != 0 else 0
+        Bonf_fdp = np.sum((Ytest[Bonf][:, 0] <= 0) | (Ytest[Bonf][:, 1] <= 0)) / len(BH_2clip)
+        Bonf_power = np.sum((Ytest[Bonf][:, 0] > 0) & (Ytest[Bonf][:, 1] > 0)) / true_null if true_null != 0 else 0
 
     df_dict = {
             'sigma': [sig],
