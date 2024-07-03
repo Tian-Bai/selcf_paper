@@ -14,6 +14,7 @@ from pygam.terms import TermList
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
 from multiprocessing import Pool
+from sklearn.metrics import r2_score
 
 rf_param = ['n_estim', 'max_depth', 'max_features']
 mlp_param = ['hidden', 'layers']
@@ -69,6 +70,7 @@ parser_rf = subparsers.add_parser('rf', help='rf regressor parser.')
 parser_mlp = subparsers.add_parser('mlp', help='mlp regressor parser.')
 parser_linear = subparsers.add_parser('linear', help='linear regressor parser.')
 parser_additive = subparsers.add_parser('additive', help='GAM regressor parser.')
+parser_mlp_dp = subparsers.add_parser('mlp_DP', help='mlp-DP regressor parser.')
 
 # for below two regressors, rf and mlp, we allow testing along an x axis representing the configuration of models (e.g. number of hidden layers, ...)
 # rf parser
@@ -88,6 +90,28 @@ def suppress_print():
     with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
         yield
 
+def single_select(calib_scores, test_scores, q = 0.1):
+    ntest = len(test_scores)
+    ncalib = len(calib_scores)
+    pvals = np.zeros(ntest)
+
+    for j in range(ntest):
+        pvals[j] = (np.sum(calib_scores < test_scores[j]) + np.random.uniform(size=1)[0] * (np.sum(calib_scores == test_scores[j]) + 1)) / (ncalib+1)
+
+    idxs = [j for j in range(ntest) if pvals[j] <= q]
+    return np.array(idxs), pvals
+
+def bonf_select(calib_scores, test_scores, q = 0.1):
+    ntest = len(test_scores)
+    ncalib = len(calib_scores)
+    pvals = np.zeros(ntest)
+
+    for j in range(ntest):
+        pvals[j] = (np.sum(calib_scores < test_scores[j]) + np.random.uniform(size=1)[0] * (np.sum(calib_scores == test_scores[j]) + 1)) / (ncalib+1)
+
+    idxs = [j for j in range(ntest) if pvals[j] <= q / ntest]
+    return np.array(idxs), pvals
+
 def conformal_select(calib_scores, test_scores, q = 0.1):
     ntest = len(test_scores)
     ncalib = len(calib_scores)
@@ -95,7 +119,6 @@ def conformal_select(calib_scores, test_scores, q = 0.1):
 
     for j in range(ntest):
         pvals[j] = (np.sum(calib_scores < test_scores[j]) + np.random.uniform(size=1)[0] * (np.sum(calib_scores == test_scores[j]) + 1)) / (ncalib+1)
-         
     
     # BH(q) 
     df_test = pd.DataFrame({"id": range(ntest), "pval": pvals, "scores": test_scores}).sort_values(by='pval')
@@ -117,7 +140,7 @@ def eval_sel(sel_idx, ys, cs):
     else:
         fdp = np.sum(ys[sel_idx] <= cs[sel_idx]) / len(sel_idx)
         power = np.sum(ys[sel_idx] > cs[sel_idx]) / sum(ys > cs) 
-    return fdp, power  
+    return fdp, power, len(sel_idx)
 
 if args.regressor in ['linear', 'additive']:
     out_dir = f"..\\csv-HIV\\{args.regressor}"
@@ -130,6 +153,9 @@ elif args.regressor == 'mlp':
     config = args.config
     out_dir = f"..\\csv-HIV\\{args.regressor}"
     full_out_dir = f"..\\csv-HIV\\{args.regressor}\\{mlp_param[0]}={config[mlp_param[0]]} {mlp_param[1]}={config[mlp_param[1]]} itr={args.itr}.csv"
+elif args.regressor == 'mlp_DP':
+    out_dir = f"..\\csv-HIV\\{args.regressor}"
+    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\itr={args.itr}.csv"
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
@@ -159,9 +185,9 @@ def run(seed):
                                             drug_encoding = drug_encoding,
                                             split_method='no_split',
                                             random_seed = seed)
+        
     # USING CUSTOM PREDICTOR
     ttrain_label = ttrain.Label.to_numpy()
-    # use np.stack to transform a 1d array of np arrays to a 2d np array
     ttrain_predictor = np.stack(ttrain['drug_encoding'].to_numpy()) 
     dother_predictor = np.stack(dother['drug_encoding'].to_numpy())
 
@@ -181,44 +207,52 @@ def run(seed):
         model.fit(ttrain_predictor, ttrain_label)
         all_pred = model.predict(dother_predictor)
     elif args.regressor == 'mlp':
-        hidden = int(config["hidden"])
-        layers = int(config["layers"])
-        model = MLPRegressor(hidden_layer_sizes=(hidden, ) * layers, random_state=0, alpha=1e-2, max_iter=1000)
+        hidden = int(args.config["hidden"])
+        layers = int(args.config["layers"])
+        model = MLPRegressor(hidden_layer_sizes=(hidden, ) * layers, random_state=0, alpha=3e-3, max_iter=1000)
         model.fit(ttrain_predictor, ttrain_label)
         all_pred = model.predict(dother_predictor)
     elif args.regressor == 'rf':
-        n_estim = int(config["n_estim"])
-        max_depth = int(config["max_depth"])
-        max_features = int(config["max_features"])
+        n_estim = int(args.config["n_estim"])
+        max_depth = int(args.config["max_depth"])
+        max_features = args.config["max_features"]
         model = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
         model.fit(ttrain_predictor, ttrain_label)
         all_pred = model.predict(dother_predictor)
+    elif args.regressor == 'mlp_DP':
+        with suppress_print():
+            model_config = utils.generate_config(drug_encoding = drug_encoding, 
+                                cls_hidden_dims = [1024, 1024, 512], 
+                                train_epoch = 3, 
+                                LR = 0.001, 
+                                batch_size = 128,
+                                hidden_dim_drug = 128,
+                                mpnn_hidden_size = 128,
+                                mpnn_depth = 3
+                                )
+            model = CompoundPred.model_initialize(**model_config)
+            model.train(ttrain, tval, ttest)
 
-    # USING DEEPPURPOSE:
-    # temporarily block print output
-    # with suppress_print():
-        # config = utils.generate_config(drug_encoding = drug_encoding, 
-        #                     cls_hidden_dims = [1024, 1024, 512], 
-        #                     train_epoch = 3, 
-        #                     LR = 0.001, 
-        #                     batch_size = 128,
-        #                     hidden_dim_drug = 128,
-        #                     mpnn_hidden_size = 128,
-        #                     mpnn_depth = 3
-        #                     )
-        # model = CompoundPred.model_initialize(**config)
-        # model.train(ttrain, tval, ttest)
+            all_pred = np.array(model.predict(dother))
+            train_pred = np.array(model.predict(ttrain))
 
-        # all_pred = np.array(model.predict(dother))
-        # train_pred = np.array(model.predict(ttrain))
+    if args.regressor != 'mlp_DP':
+        ttest_label = ttest.Label.to_numpy()
+        ttest_predictor = np.stack(ttest['drug_encoding'].to_numpy()) 
+        ttest_pred = model.predict(ttest_predictor)
+        r_sq = r2_score(ttest_label, ttest_pred)
+    else:
+        ttest_label = ttest.Label.to_numpy()
+        ttest_pred = np.array(model.predict(ttest))
+        r_sq = r2_score(ttest_label, ttest_pred)
 
-    calib_msk = np.random.rand(len(dother)) < 0.5
+    reind = np.random.permutation(len(dother))
 
-    dcalib = dother[calib_msk]
-    dtest = dother[~calib_msk]
+    dcalib = dother.iloc[reind[:int(len(dother)*0.5+1)]]
+    dtest = dother.iloc[reind[int(1+len(dother)*0.5):]]
 
-    hat_mu_calib = all_pred[calib_msk]
-    hat_mu_test = all_pred[~calib_msk]
+    hat_mu_calib = all_pred[reind[:int(len(dother)*0.5+1)]]
+    hat_mu_test = all_pred[reind[int(1+len(dother)*0.5):]]
 
     y_calib = np.array(dcalib["Label"])
     y_test = np.array(dtest["Label"])
@@ -233,25 +267,40 @@ def run(seed):
 
     q = 0.1 # nominal level
 
+    single, _ = single_select(calib_scores_clip, test_scores, q)
+    bonf, _ = bonf_select(calib_scores_clip, test_scores, q)
     BH_res, _ = conformal_select(calib_scores_res, test_scores, q)  
     BH_sub, _ = conformal_select(calib_scores_sub[y_calib <= c], test_scores, q) 
     BH_clip, _ = conformal_select(calib_scores_clip, test_scores, q)
 
-    BH_res_fdp, BH_res_power = eval_sel(BH_res, y_test, np.array([c]*len(y_test)))
-    BH_sub_fdp, BH_sub_power = eval_sel(BH_sub, y_test, np.array([c]*len(y_test)))
-    BH_clip_fdp, BH_clip_power = eval_sel(BH_clip, y_test, np.array([c]*len(y_test))) 
+    single_fdp, single_power, single_nsel = eval_sel(single, y_test, np.array([c]*len(y_test)))
+    bonf_fdp, bonf_power, bonf_nsel = eval_sel(bonf, y_test, np.array([c]*len(y_test)))
+    BH_res_fdp, BH_res_power, BH_res_nsel = eval_sel(BH_res, y_test, np.array([c]*len(y_test)))
+    BH_sub_fdp, BH_sub_power, BH_sub_nsel = eval_sel(BH_sub, y_test, np.array([c]*len(y_test)))
+    BH_clip_fdp, BH_clip_power, BH_clip_nsel = eval_sel(BH_clip, y_test, np.array([c]*len(y_test))) 
 
     output_dict = {
         'q': [q], 
         'seed': [seed], 
+        'regressor': [args.regressor],
+        'r_squared': [r_sq],
         'calib_size': [len(y_calib)], 
         'test_size': [len(y_test)], 
+        'single_power': [single_power],
+        'single_fdp': [single_fdp],
+        'single_nsel': [single_nsel], 
+        'bonf_power': [bonf_power],
+        'bonf_fdp': [bonf_fdp],
+        'bonf_nsel': [bonf_nsel],
         'BH_res_fdp': [BH_res_fdp], 
         'BH_res_power': [BH_res_power], 
+        'BH_res_nsel': [BH_res_nsel], 
         'BH_sub_fdp': [BH_sub_fdp], 
         'BH_sub_power': [BH_sub_power], 
+        'BH_sub_nsel': [BH_sub_nsel], 
         'BH_clip_fdp': [BH_clip_fdp], 
-        'BH_clip_power': [BH_clip_power]
+        'BH_clip_power': [BH_clip_power],
+        'BH_clip_nsel': [BH_clip_nsel]
     }
     df = pd.DataFrame(output_dict)
     return df
