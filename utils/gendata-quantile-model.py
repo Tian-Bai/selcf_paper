@@ -140,12 +140,18 @@ sigma = '0.5(4)-0.2(4)'
 dim = args.dim
 q = 0.1
 
+# quantiles to consider
+qt_list = np.linspace(0.1, 0.9, 9)
+
 # hardcode the sigma
-sig_list = [0.5]
+sig_list = [0.01]
 sig_list2 = [0.2]
 
 set_list = [1, 2, 3, 4]
 set_list2 = [5, 6, 7, 8]
+
+# # trivial setting
+# set_list = [0]
 
 seed_list = [i for i in range(0, itr)]
 
@@ -180,7 +186,7 @@ if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     print("Output diretory created!")
 
-def run(sig, setting, seed, **kwargs):
+def run(sig, setting, seed, qt, **kwargs):
     if regressor == 'rf':
         assert set(kwargs.keys()) <= set(rf_param)
     elif regressor == 'mlp':
@@ -206,7 +212,7 @@ def run(sig, setting, seed, **kwargs):
         n_estim = int(kwargs["n_estim"])
         max_depth = int(kwargs["max_depth"])
         max_features = kwargs["max_features"]
-        reg = RandomForestQuantileRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
+        reg = RandomForestQuantileRegressor(default_quantiles=qt, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
     elif regressor == 'mlp':
         raise NotImplementedError("To be implemented.")
     
@@ -217,13 +223,13 @@ def run(sig, setting, seed, **kwargs):
     elif regressor == 'linear':
         if kwargs["interaction"] == "no":
             # no interaction
-            reg = QuantileRegressor(solver='highs')
+            reg = QuantileRegressor(quantile=qt, alpha=0, solver='highs')
         elif kwargs["interaction"] == "yes":
             poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
             Xtrain = poly.fit_transform(Xtrain)
             Xcalib = poly.fit_transform(Xcalib)
             Xtest = poly.fit_transform(Xtest)
-            reg = QuantileRegressor(solver='highs')
+            reg = QuantileRegressor(quantile=qt, alpha=0, solver='highs')
         elif kwargs["interaction"] == "oracle":
             if setting == 1:
                 transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 2], x[:, 1] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2]))
@@ -236,7 +242,7 @@ def run(sig, setting, seed, **kwargs):
             Xtrain = transf(Xtrain)
             Xcalib = transf(Xcalib)
             Xtest = transf(Xtest)
-            reg = QuantileRegressor(solver='highs')
+            reg = QuantileRegressor(quantile=qt, alpha=0, solver='highs')
     elif regressor == 'additive':
         raise NotImplementedError("To be implemented. A relevant package in R is https://github.com/mfasiolo/qgam.")
 
@@ -267,6 +273,12 @@ def run(sig, setting, seed, **kwargs):
             reg = LinearGAM(tm_list)
     
     # fit (Y > 0) directly, not Y
+
+    # only use the first covariate
+    Xtrain = Xtrain[:, 0][:, None]
+    Xcalib = Xcalib[:, 0][:, None]
+    Xtest = Xtest[:, 0][:, None]
+
     reg.fit(Xtrain, 1 * (Ytrain > 0))
     
     # calibration 
@@ -324,6 +336,7 @@ def run(sig, setting, seed, **kwargs):
             'set': [setting],
             'ntest': [ntest],
             'regressor': [f"quantile-{regressor}"],
+            'qt': [qt],
             'seed': [seed],
             'r_squared': [r_sq],
             'BH_res_fdp': [BH_res_fdp], 
@@ -345,7 +358,7 @@ def run(sig, setting, seed, **kwargs):
     return df
 
 def run2(tup):
-    sig, setting, seed, x = tup
+    sig, setting, seed, qt, x = tup
 
     if regressor == 'rf':
         n_estim = x if xaxis == 'n_estim' else config["n_estim"]
@@ -357,27 +370,27 @@ def run2(tup):
         layers = x if xaxis == 'layers' else config["layers"]
         return run(sig, setting, seed, hidden=hidden, layers=layers)
     elif regressor in ['linear', 'additive']:
-        return run(sig, setting, seed, interaction=x)
+        return run(sig, setting, seed, qt, interaction=x)
 
 if __name__ == '__main__':
     if regressor in ['rf', 'mlp']:
-        combined_itr = itertools.product(sig_list, set_list, seed_list, range(*xrange))
-        combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, range(*xrange))
-        total_len = len(sig_list) * len(set_list) * len(seed_list) * len(range(*xrange))
-        total_len2 = len(sig_list2) * len(set_list2) * len(seed_list) * len(range(*xrange))
+        combined_itr = itertools.product(sig_list, set_list, seed_list, qt_list, range(*xrange))
+        # combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, qt_list, range(*xrange))
+        total_len = len(sig_list) * len(set_list) * len(seed_list) * len(range(*xrange)) * len(qt_list)
+        # total_len2 = len(sig_list2) * len(set_list2) * len(seed_list) * len(range(*xrange)) * len(qt_list)
     elif regressor in ['linear', 'additive']:
-        combined_itr = itertools.product(sig_list, set_list, seed_list, [interaction])
-        combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, [interaction])
-        total_len = len(sig_list) * len(set_list) * len(seed_list)
-        total_len2 = len(sig_list2) * len(set_list2) * len(seed_list)
+        combined_itr = itertools.product(sig_list, set_list, seed_list, qt_list, [interaction])
+        # combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, qt_list, [interaction])
+        total_len = len(sig_list) * len(set_list) * len(seed_list) * len(qt_list)
+        # total_len2 = len(sig_list2) * len(set_list2) * len(seed_list) * len(qt_list)
 
     with Pool(processes=6) as pool:
         results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))
-    with Pool(processes=6) as pool:
-        results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
+    # with Pool(processes=6) as pool:
+    #     results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
 
     all_res = pd.concat(results, ignore_index=True)
-    all_res2 = pd.concat(results2, ignore_index=True)
-    all_res = pd.concat((all_res, all_res2), ignore_index=True)
+    # all_res2 = pd.concat(results2, ignore_index=True)
+    # all_res = pd.concat((all_res, all_res2), ignore_index=True)
                         
     all_res.to_csv(full_out_dir) 

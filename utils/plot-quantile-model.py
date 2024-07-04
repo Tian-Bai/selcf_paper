@@ -104,11 +104,13 @@ parser_additive = subparsers.add_parser('additive', help='GAM regressor parser.'
 
 # for below two regressors, rf and mlp, we allow testing along an x axis representing the configuration of models (e.g. number of hidden layers, ...)
 # rf parser
+parser_rf.add_argument('qt', type=float, help='quantile to plot')
 parser_rf.add_argument('xaxis', type=rf_str, help='x-axis in the plot')
 parser_rf.add_argument('-r', '--range', type=range_arg, dest='range', help='range of the x-axis') # parsed as np.arange
 parser_rf.add_argument('config', type=rf_config, help='other configurations of the rf') 
 
 # mlp parser
+parser_mlp.add_argument('qt', type=float, help='quantile to plot')
 parser_mlp.add_argument('xaxis', type=mlp_str, help='x-axis in the plot')
 parser_mlp.add_argument('-r', '--range', type=range_arg, dest='range', help='range of the x-axis') # parsed as np.arange
 parser_mlp.add_argument('config', type=mlp_config, help='other configurations of the mlp')
@@ -129,31 +131,34 @@ sigma = '0.5(4)-0.2(4)'
 dim = args.dim
 q = 0.1
 
-targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')]
+targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections')]
+# r_sq is meaningless for quantile regression
 
 if regressor == 'rf':
     xaxis = args.xaxis
     xrange = args.range
     config = args.config
+    qt = args.qt
 
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
     df = pd.read_csv(f"..\\csv\\quantile-{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-    gb = ['set', 'regressor', 'dim'] + rf_param
+    gb = ['set', 'regressor', 'dim', 'qt'] + rf_param
 elif regressor == 'mlp':
     xaxis = args.xaxis
     xrange = args.range
     config = args.config
+    qt = args.qt
 
     mlp_param2 = [r for r in mlp_param]
     mlp_param2.remove(xaxis)
     df = pd.read_csv(f"..\\csv\\quantile-{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-    gb = ['set', 'regressor', 'dim'] + mlp_param
+    gb = ['set', 'regressor', 'dim', 'qt'] + mlp_param
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
     df = pd.read_csv(f"..\\csv\\quantile-{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-    gb = ['set', 'regressor', 'dim', 'interaction']
+    gb = ['set', 'regressor', 'dim', 'qt', 'interaction']
 
 df = df.groupby(gb).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
@@ -165,6 +170,7 @@ for (target, tname) in targets:
 
     for (s,), group in grouped:
         if regressor in ['mlp', 'rf']:
+            # select one quantile to plot
             BH_res = []
             BH_rel = []
             BH_2clip = []
@@ -172,12 +178,12 @@ for (target, tname) in targets:
             r_sq = []
             for x in sorted(group[xaxis].unique()):
                 if target != 'r_squared':
-                    BH_res.append(group[group[xaxis] == x][f'BH_res_{target}'].values[0])
-                    BH_rel.append(group[group[xaxis] == x][f'BH_rel_{target}'].values[0])
-                    BH_2clip.append(group[group[xaxis] == x][f'BH_2clip_{target}'].values[0])
-                    bon.append(group[group[xaxis] == x][f'Bonf_{target}'].values[0])
+                    BH_res.append(group[(group[xaxis] == x) & (group['qt'] == qt)][f'BH_res_{target}'].values[0])
+                    BH_rel.append(group[(group[xaxis] == x) & (group['qt'] == qt)][f'BH_rel_{target}'].values[0])
+                    BH_2clip.append(group[(group[xaxis] == x) & (group['qt'] == qt)][f'BH_2clip_{target}'].values[0])
+                    bon.append(group[(group[xaxis] == x) & (group['qt'] == qt)][f'Bonf_{target}'].values[0])
                 else:
-                    r_sq.append(group[group[xaxis] == x][f'r_squared'].values[0])
+                    r_sq.append(group[(group[xaxis] == x) & (group['qt'] == qt)][f'r_squared'].values[0])
             x = idx // 4
             y = idx % 4
             if target != 'r_squared':
@@ -197,39 +203,47 @@ for (target, tname) in targets:
                 else:
                     axs[x][y].plot(np.arange(*xrange), r_sq)
         elif regressor in ['linear', 'additive']:
-            # only plot horizontal lines
-            if target != 'r_squared':
-                BH_res = group[f'BH_res_{target}'].values[0]
-                BH_rel = group[f'BH_rel_{target}'].values[0]
-                BH_2clip = group[f'BH_2clip_{target}'].values[0]
-                bon = group[f'Bonf_{target}'].values[0]
-            r_sq = group[f'r_squared'].values[0]
+            # plot, with qt as x-axis
+            BH_res = []
+            BH_rel = []
+            BH_2clip = []
+            bon = []
+            r_sq = []
+            qt_range = sorted(group['qt'].unique())
+            for iqt in qt_range:
+                if target != 'r_squared':
+                    BH_res.append(group[(group['qt'] == iqt)][f'BH_res_{target}'].values[0])
+                    BH_rel.append(group[(group['qt'] == iqt)][f'BH_rel_{target}'].values[0])
+                    BH_2clip.append(group[(group['qt'] == iqt)][f'BH_2clip_{target}'].values[0])
+                    bon.append(group[(group['qt'] == iqt)][f'Bonf_{target}'].values[0])
+                else:
+                    r_sq.append(group[(group['qt'] == iqt)][f'r_squared'].values[0])
             x = idx // 4
             y = idx % 4
             if target != 'r_squared':
                 if idx == 0:
                     #axs[x][y].axhline(y=BH_res, color='red', label="BH_res")
-                    axs[x][y].axhline(y=BH_rel, label="BH_sub", alpha=0.8)
-                    axs[x][y].axhline(y=BH_2clip, color='orange', label="BH_2clip", alpha=0.8)
+                    axs[x][y].plot(qt_range, BH_rel, label="BH_sub")
+                    axs[x][y].plot(qt_range, BH_2clip, label="BH_2clip")
                     #axs[x][y].axhline(y=bon, label="Bonferroni")
                 else:
                     #axs[x][y].axhline(y=BH_res)
-                    axs[x][y].axhline(y=BH_rel, alpha=0.8)
-                    axs[x][y].axhline(y=BH_2clip, color='orange', alpha=0.8)
+                    axs[x][y].plot(qt_range, BH_rel)
+                    axs[x][y].plot(qt_range, BH_2clip)
                     #axs[x][y].axhline(y=bon)
             else:
-                axs[x][y].axhline(y=r_sq)
+                pass
             
         axs[x][y].set_xlabel(f'Setting {s}')
         idx += 1
     if regressor in ['mlp', 'rf']:
         fig.supxlabel(f"quantile-{regressor} - {xaxis}")
     elif regressor in ['linear', 'additive']:
-        fig.supxlabel(f"quantile-{regressor}")
+        fig.supxlabel(f"quantile-{regressor} - qt")
     fig.supylabel(f'{tname}')
     fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma} with quantile-{regressor} regressor. \n {ntest} tests and {dim} total features, averged over {itr} times.")
     fig.legend()
     if regressor in ['mlp', 'rf']:
-        plt.savefig(f'quantile-{regressor}-complexity {target} {xrange[0]},{xrange[1]},{xrange[2]} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
+        plt.savefig(f'quantile-{regressor}-complexity {target} {xrange[0]},{xrange[1]},{xrange[2]} sigma={sigma} itr={itr} ntest={ntest} dim={dim} qt={qt}.png')
     elif regressor in ['linear', 'additive']:
         plt.savefig(f'quantile-{regressor} {target} interaction={interaction} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')

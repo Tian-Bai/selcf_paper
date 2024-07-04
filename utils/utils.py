@@ -81,6 +81,11 @@ class MLPQuantileRegressor(nn.Module):
 def gen_data(setting, n, sig, dim=20): 
     X = np.random.uniform(low=-1, high=1, size=n*dim).reshape((n,dim))
     
+    if setting == 0:
+        mu_x = 4 * X[:,0]
+        Y = mu_x + np.random.normal(size=n) * sig
+        return X, Y, mu_x
+
     if setting == 1: 
         mu_x = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5)) + (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
         mu_x = mu_x * 4
