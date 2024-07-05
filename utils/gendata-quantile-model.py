@@ -31,22 +31,14 @@ If the regressor if mlp, parameters are ['hidden', 'layers'].
 
 def range_arg(value):
     try:
-        values = [int(i) for i in value.split(',')]
+        values = [float(i) for i in value.split(',')]
         assert len(values) == 3
+        values[2] = int(values[2])
     except (ValueError, AssertionError):
         raise argparse.ArgumentTypeError(
             'Provide a comma-seperated list of 1, 2 or 3 integers'
         )
     return values
-
-def rf_str(value):
-    try:
-        assert str(value) in rf_param
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for rf x-axis.'
-        )
-    return str(value)
 
 def rf_config(value):
     try:
@@ -60,15 +52,6 @@ def rf_config(value):
             'Illegal argument for rf configurations.'
         )
     return pairs
-
-def mlp_str(value):
-    try:
-        assert str(value) in mlp_param
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for mlp x-axis.'
-        )
-    return str(value)
 
 def mlp_config(value):
     try:
@@ -105,6 +88,7 @@ parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=20)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
+parser.add_argument('-qt', '--quantile', dest='qt', type=range_arg, help='quantile range to consider')
 
 # subparsers for different supported models
 subparsers = parser.add_subparsers(dest='regressor', required=True, help='The target regressor. Choose between ["rf", "mlp", "additive", "linear", ...].')
@@ -113,15 +97,10 @@ parser_mlp = subparsers.add_parser('mlp', help='mlp regressor parser.')
 parser_linear = subparsers.add_parser('linear', help='linear regressor parser.')
 parser_additive = subparsers.add_parser('additive', help='GAM regressor parser.')
 
-# for below two regressors, rf and mlp, we allow testing along an x axis representing the configuration of models (e.g. number of hidden layers, ...)
 # rf parser
-parser_rf.add_argument('xaxis', type=rf_str, help='x-axis in the plot')
-parser_rf.add_argument('-r', '--range', type=range_arg, dest='range', help='range of the x-axis') # parsed as np.arange
 parser_rf.add_argument('config', type=rf_config, help='other configurations of the rf') 
 
 # mlp parser
-parser_mlp.add_argument('xaxis', type=mlp_str, help='x-axis in the plot')
-parser_mlp.add_argument('-r', '--range', type=range_arg, dest='range', help='range of the x-axis') # parsed as np.arange
 parser_mlp.add_argument('config', type=mlp_config, help='other configurations of the mlp')
 
 # for below two regressors, linear and additive, we allow choosing between whether to use interaction between the terms, and whether the interaction terms are 'oracle'.
@@ -141,10 +120,10 @@ dim = args.dim
 q = 0.1
 
 # quantiles to consider
-qt_list = np.linspace(0.1, 0.9, 9)
+qt_list = args.qt
 
 # hardcode the sigma
-sig_list = [0.01]
+sig_list = [0.5]
 sig_list2 = [0.2]
 
 set_list = [1, 2, 3, 4]
@@ -159,41 +138,26 @@ n = 1000 # train size
 all_res = pd.DataFrame()
 
 if regressor == 'rf':
-    xaxis = args.xaxis
-    xrange = args.range
     config = args.config
 
-    rf_param2 = [r for r in rf_param]
-    rf_param2.remove(xaxis)
-    out_dir = f"..\\csv\\quantile-{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv\\quantile-{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv\\quantile-{regressor}\\"
+    full_out_dir = f"..\\csv\\quantile-{regressor}\\{qt_list[0]},{qt_list[1]},{qt_list[2]} {rf_param[0]}={config[rf_param[0]]} {rf_param[1]}={config[rf_param[1]]} {rf_param[2]}={config[rf_param[2]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 elif regressor == 'mlp':
-    xaxis = args.xaxis
-    xrange = args.range
     config = args.config
 
-    mlp_param2 = [r for r in mlp_param]
-    mlp_param2.remove(xaxis)
-    out_dir = f"..\\csv\\quantile-{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv\\quantile-{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv\\quantile-{regressor}\\"
+    full_out_dir = f"..\\csv\\quantile-{regressor}\\{qt_list[0]},{qt_list[1]},{qt_list[2]} {mlp_param[0]}={config[mlp_param[0]]} {mlp_param[1]}={config[mlp_param[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
-    out_dir = f"..\\csv\\quantile-{regressor}\\interaction={interaction}"
-    full_out_dir = f"..\\csv\\quantile-{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv\\quantile-{regressor}\\"
+    full_out_dir = f"..\\csv\\quantile-{regressor}\\{qt_list[0]},{qt_list[1]},{qt_list[2]} interaction={interaction} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     print("Output diretory created!")
 
-def run(sig, setting, seed, qt, **kwargs):
-    if regressor == 'rf':
-        assert set(kwargs.keys()) <= set(rf_param)
-    elif regressor == 'mlp':
-        assert set(kwargs.keys()) <= set(mlp_param)
-    elif regressor in ['linear', 'additive']:
-        assert set(kwargs.keys()) <= set(['interaction'])
-            
+def run(sig, setting, seed, qt):            
     df = pd.DataFrame()
     random.seed(seed)
 
@@ -209,28 +173,28 @@ def run(sig, setting, seed, qt, **kwargs):
     
     # MLP with 'layer' hidden layer, each of size 'hidden'
     if regressor == 'rf':
-        n_estim = int(kwargs["n_estim"])
-        max_depth = int(kwargs["max_depth"])
-        max_features = kwargs["max_features"]
+        n_estim = int(config["n_estim"])
+        max_depth = int(config["max_depth"])
+        max_features = config["max_features"]
         reg = RandomForestQuantileRegressor(default_quantiles=qt, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
     elif regressor == 'mlp':
         raise NotImplementedError("To be implemented.")
     
-        hidden = int(kwargs["hidden"])
-        layers = int(kwargs["layers"])
+        hidden = int(config["hidden"])
+        layers = int(config["layers"])
         # TODO: implement MLPQuantileRegressor
         reg = MLPRegressor(hidden_layer_sizes=(hidden, ) * layers, random_state=0, alpha=3e-2, max_iter=1000)
     elif regressor == 'linear':
-        if kwargs["interaction"] == "no":
+        if interaction == "no":
             # no interaction
             reg = QuantileRegressor(quantile=qt, alpha=0, solver='highs')
-        elif kwargs["interaction"] == "yes":
+        elif interaction == "yes":
             poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
             Xtrain = poly.fit_transform(Xtrain)
             Xcalib = poly.fit_transform(Xcalib)
             Xtest = poly.fit_transform(Xtest)
             reg = QuantileRegressor(quantile=qt, alpha=0, solver='highs')
-        elif kwargs["interaction"] == "oracle":
+        elif interaction == "oracle":
             if setting == 1:
                 transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 2], x[:, 1] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2]))
             if setting in [2, 3, 4]:
@@ -246,19 +210,19 @@ def run(sig, setting, seed, qt, **kwargs):
     elif regressor == 'additive':
         raise NotImplementedError("To be implemented. A relevant package in R is https://github.com/mfasiolo/qgam.")
 
-        if kwargs["interaction"] == "no":
+        if interaction == "no":
             tm_list = TermList()
             for i in range(dim):
                 tm_list += s(i)
             reg = LinearGAM(tm_list)
-        elif kwargs["interaction"] == "yes":
+        elif interaction == "yes":
             tm_list = TermList()
             for i in range(dim):
                 tm_list += s(i)
                 for j in range(i+1, dim):
                     tm_list += te(i, j)
             reg = LinearGAM(tm_list)
-        elif kwargs["interaction"] == "oracle":
+        elif interaction == "oracle":
             tm_list = TermList()
             for i in range(4): # alternatively, use 4 here
                 tm_list += s(i)
@@ -273,12 +237,6 @@ def run(sig, setting, seed, qt, **kwargs):
             reg = LinearGAM(tm_list)
     
     # fit (Y > 0) directly, not Y
-
-    # only use the first covariate
-    Xtrain = Xtrain[:, 0][:, None]
-    Xcalib = Xcalib[:, 0][:, None]
-    Xtest = Xtest[:, 0][:, None]
-
     reg.fit(Xtrain, 1 * (Ytrain > 0))
     
     # calibration 
@@ -352,45 +310,27 @@ def run(sig, setting, seed, qt, **kwargs):
             'Bonf_power': [Bonf_power],
             'Bonf_nsel': [len(Bonf)],
             }
-    df_dict.update(kwargs)
     
     df = pd.DataFrame(df_dict)
     return df
 
 def run2(tup):
-    sig, setting, seed, qt, x = tup
-
-    if regressor == 'rf':
-        n_estim = x if xaxis == 'n_estim' else config["n_estim"]
-        max_depth = x if xaxis == 'max_depth' else config["max_depth"]
-        max_features = x if xaxis == 'max_features' else config["max_features"]
-        return run(sig, setting, seed, n_estim=n_estim, max_depth=max_depth, max_features=max_features)
-    elif regressor == 'mlp':
-        hidden = x if xaxis == 'hidden' else config["hidden"]
-        layers = x if xaxis == 'layers' else config["layers"]
-        return run(sig, setting, seed, hidden=hidden, layers=layers)
-    elif regressor in ['linear', 'additive']:
-        return run(sig, setting, seed, qt, interaction=x)
+    sig, setting, seed, qt = tup
+    return run(sig, setting, seed, qt)
 
 if __name__ == '__main__':
-    if regressor in ['rf', 'mlp']:
-        combined_itr = itertools.product(sig_list, set_list, seed_list, qt_list, range(*xrange))
-        # combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, qt_list, range(*xrange))
-        total_len = len(sig_list) * len(set_list) * len(seed_list) * len(range(*xrange)) * len(qt_list)
-        # total_len2 = len(sig_list2) * len(set_list2) * len(seed_list) * len(range(*xrange)) * len(qt_list)
-    elif regressor in ['linear', 'additive']:
-        combined_itr = itertools.product(sig_list, set_list, seed_list, qt_list, [interaction])
-        # combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, qt_list, [interaction])
-        total_len = len(sig_list) * len(set_list) * len(seed_list) * len(qt_list)
-        # total_len2 = len(sig_list2) * len(set_list2) * len(seed_list) * len(qt_list)
+    combined_itr = itertools.product(sig_list, set_list, seed_list, np.linspace(*qt_list))
+    combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, np.linspace(*qt_list))
+    total_len = len(sig_list) * len(set_list) * len(seed_list) * len(np.linspace(*qt_list))
+    total_len2 = len(sig_list2) * len(set_list2) * len(seed_list) * len(np.linspace(*qt_list))
 
     with Pool(processes=6) as pool:
         results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))
-    # with Pool(processes=6) as pool:
-    #     results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
+    with Pool(processes=6) as pool:
+        results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
 
     all_res = pd.concat(results, ignore_index=True)
-    # all_res2 = pd.concat(results2, ignore_index=True)
-    # all_res = pd.concat((all_res, all_res2), ignore_index=True)
+    all_res2 = pd.concat(results2, ignore_index=True)
+    all_res = pd.concat((all_res, all_res2), ignore_index=True)
                         
     all_res.to_csv(full_out_dir) 
