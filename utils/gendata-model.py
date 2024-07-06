@@ -142,7 +142,7 @@ q = 0.1
 sig_list = [0.5]
 sig_list2 = [0.2]
 
-set_list = [1, 2, 3, 4]
+set_list = [9]
 set_list2 = [5, 6, 7, 8]
 
 seed_list = [i for i in range(0, itr)]
@@ -203,7 +203,7 @@ def run(sig, setting, seed, **kwargs):
     if regressor == 'rf':
         n_estim = int(kwargs["n_estim"])
         max_depth = int(kwargs["max_depth"])
-        max_features = int(kwargs["max_features"])
+        max_features = kwargs["max_features"]
         reg = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
     elif regressor == 'mlp':
         hidden = int(kwargs["hidden"])
@@ -259,20 +259,30 @@ def run(sig, setting, seed, **kwargs):
                 tm_list += te(0, 1)
             reg = LinearGAM(tm_list)
     
-    # fit (Y > 0) directly, not Y
-    reg.fit(Xtrain, 1 * (Ytrain > 0))
-    
-    # calibration 
-    calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
-    calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
-    calib_scores_clip = Ycalib * (Ycalib > 0) - reg.predict(Xcalib)
-    calib_scores_2clip = 1000 * (Ycalib > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
-    
-    Ypred = reg.predict(Xtest) 
-    test_scores = -Ypred
+    if 1 <= setting and setting <= 8:
+        # fit (Y > 0) directly, not Y
+        reg.fit(Xtrain, 1 * (Ytrain > 0))
+        
+        # calibration 
+        calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
+        calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
+        calib_scores_2clip = 1000 * (Ycalib > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
+        
+        Ypred = reg.predict(Xtest) 
+        test_scores = -Ypred
 
-    r_sq = r2_score((Ytest > 0), Ypred)
-    
+        r_sq = r2_score((Ytest > 0), Ypred)
+    else:
+        reg.fit(Xtrain, Ytrain)
+        # calibration 
+        calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
+        calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
+        calib_scores_2clip = 1000 * (Ycalib > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
+        
+        Ypred = reg.predict(Xtest) 
+        test_scores = -Ypred
+
+        r_sq = r2_score(Ytest, Ypred)
     # BH using residuals
     BH_res = BH(calib_scores, test_scores, q )
     # summarize
@@ -366,11 +376,11 @@ if __name__ == '__main__':
 
     with Pool(processes=6) as pool:
         results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))
-    with Pool(processes=6) as pool:
-        results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
+    # with Pool(processes=6) as pool:
+    #     results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
 
     all_res = pd.concat(results, ignore_index=True)
-    all_res2 = pd.concat(results2, ignore_index=True)
-    all_res = pd.concat((all_res, all_res2), ignore_index=True)
+    # all_res2 = pd.concat(results2, ignore_index=True)
+    # all_res = pd.concat((all_res, all_res2), ignore_index=True)
                         
     all_res.to_csv(full_out_dir) 

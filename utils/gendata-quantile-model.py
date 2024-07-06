@@ -163,8 +163,8 @@ def run(sig, setting, seed, qt):
 
     Xtrain, Ytrain, mu_train = gen_data(setting, n, sig, dim=dim)
     Xcalib, Ycalib, mu_calib = gen_data(setting, n, sig, dim=dim)
-
     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig, dim=dim)
+
     true_null = sum(Ytest > 0)
     # don't consider the no true null case (rejection sampling)
     # while true_null == 0:
@@ -326,11 +326,11 @@ if __name__ == '__main__':
 
     with Pool(processes=6) as pool:
         results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))
-    with Pool(processes=6) as pool:
-        results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
+    # with Pool(processes=6) as pool:
+    #     results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
 
     all_res = pd.concat(results, ignore_index=True)
-    all_res2 = pd.concat(results2, ignore_index=True)
-    all_res = pd.concat((all_res, all_res2), ignore_index=True)
+    # all_res2 = pd.concat(results2, ignore_index=True)
+    # all_res = pd.concat((all_res, all_res2), ignore_index=True)
                         
     all_res.to_csv(full_out_dir) 

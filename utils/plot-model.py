@@ -164,7 +164,7 @@ for (target, tname) in targets:
     idx = 0
 
     for (s,), group in grouped:
-        if regressor in ['rf']:
+        if regressor in ['rf', 'mlp'] and len(group[xaxis].unique()) > 1:
             BH_res = []
             BH_rel = []
             BH_2clip = []
@@ -196,7 +196,7 @@ for (target, tname) in targets:
                     axs[x][y].plot(np.arange(*xrange), r_sq, label="R^2")
                 else:
                     axs[x][y].plot(np.arange(*xrange), r_sq)
-        elif regressor in ['mlp', 'linear', 'additive']:
+        else:
             # only plot horizontal lines
             if target != 'r_squared':
                 BH_res = group[f'BH_res_{target}'].values[0]
