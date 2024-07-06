@@ -82,7 +82,7 @@ def gen_data(setting, n, sig, dim=20):
     X = np.random.uniform(low=-1, high=1, size=n*dim).reshape((n,dim))
     
     if setting == 0:
-        mu_x = 4 * X[:,0]
+        mu_x = X[:,0] * 2 + X[:, 1] * 3 + X[:, 2] * (-2)
         Y = mu_x + np.random.normal(size=n) * sig
         return X, Y, mu_x
 

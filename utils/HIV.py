@@ -19,6 +19,8 @@ from sklearn.metrics import r2_score
 rf_param = ['n_estim', 'max_depth', 'max_features']
 mlp_param = ['hidden', 'layers']
 
+# TODO: fine-tune the models (esp. MLP). Refactor codes if necessary.
+
 def rf_config(value):
     try:
         pairs = {}

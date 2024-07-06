@@ -208,7 +208,7 @@ def run(sig, setting, seed, **kwargs):
     elif regressor == 'mlp':
         hidden = int(kwargs["hidden"])
         layers = int(kwargs["layers"])
-        reg = MLPRegressor(hidden_layer_sizes=(hidden, ) * layers, random_state=0, alpha=3e-2, max_iter=1000)
+        reg = MLPRegressor(hidden_layer_sizes=(hidden, ) * layers, random_state=0, learning_rate_init=1e-4, max_iter=2000, early_stopping=True, tol=3e-4)
     elif regressor == 'linear':
         if kwargs["interaction"] == "no":
             # no interaction
