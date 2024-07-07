@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Apr  4 09:54:03 2022
-
-@author: ying
-"""
-
 import numpy as np
 import pandas as pd 
 from sklearn.linear_model import LinearRegression
@@ -143,7 +135,7 @@ def gen_data(setting, n, sig, dim=20):
         X = np.random.uniform(low=0, high=5, size=n*dim).reshape((n,dim))
         Y = np.zeros(n)
         for i in range(n):
-            Y[i] = np.random.poisson(np.sin(X[i, 0]) ** 2 + 0.1) + 0.03 * X[i, 0] * np.random.randn(1)
+            Y[i] = np.random.poisson(np.sin(X[i, 0]) ** 2 + 0.1) + 0.03 * X[i, 0] * np.random.randn(1) - 3 + 2 * X[i, 0] # shift 2
             Y[i] += 25 * (np.random.uniform(0, 1, 1) < 0.01) * np.random.randn(1)
         return X, Y, None
 
@@ -190,7 +182,7 @@ def gen_data_2d(setting, n, sig, dim=20):
         Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
 
-def BH(calib_scores, test_scores, q = 0.1):
+def BH(calib_scores, test_scores, q = 0.1, return_pval=False):
     ntest = len(test_scores)
     ncalib = len(calib_scores)
     pvals = np.zeros(ntest)
@@ -205,10 +197,16 @@ def BH(calib_scores, test_scores, q = 0.1):
     idx_smaller = [j for j in range(ntest) if df_test.iloc[j,1] <= df_test.iloc[j,2]]
     
     if len(idx_smaller) == 0:
-        return(np.array([]))
+        if not return_pval:
+            return (np.array([]))
+        else:
+            return np.array([]), pvals
     else:
         idx_sel = np.array(df_test.index[range(np.max(idx_smaller)+1)])
-        return(idx_sel)
+        if not return_pval:
+            return (idx_sel)
+        else:
+            return idx_sel, pvals
     
 def Bonferroni(calib_scores, test_scores, q = 0.1):
     ntest = len(test_scores)

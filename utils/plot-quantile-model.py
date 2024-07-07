@@ -157,15 +157,15 @@ for (target, tname) in targets:
         y = idx % 4
         if target != 'r_squared':
             if idx == 0:
-                #axs[x][y].axhline(y=BH_res, color='red', label="BH_res")
+                # axs[x][y].plot(qt_range, BH_res, label="BH_res")
                 axs[x][y].plot(qt_range, BH_rel, label="BH_sub")
                 axs[x][y].plot(qt_range, BH_2clip, label="BH_2clip")
-                #axs[x][y].axhline(y=bon, label="Bonferroni")
+                # axs[x][y].plot(qt_range, bon, label="bonf")
             else:
-                #axs[x][y].axhline(y=BH_res)
+                # axs[x][y].plot(qt_range, BH_res)
                 axs[x][y].plot(qt_range, BH_rel)
                 axs[x][y].plot(qt_range, BH_2clip)
-                #axs[x][y].axhline(y=bon)
+                # axs[x][y].plot(qt_range, bon)
         else:
             pass
         

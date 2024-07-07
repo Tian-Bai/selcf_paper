@@ -126,7 +126,7 @@ qt_list = args.qt
 sig_list = [0.5]
 sig_list2 = [0.2]
 
-set_list = [1, 2, 3, 4]
+set_list = [9]
 set_list2 = [5, 6, 7, 8]
 
 # # trivial setting
@@ -176,7 +176,14 @@ def run(sig, setting, seed, qt):
         n_estim = int(config["n_estim"])
         max_depth = int(config["max_depth"])
         max_features = config["max_features"]
-        reg = RandomForestQuantileRegressor(default_quantiles=qt, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
+        try:
+            max_features = int(max_features)
+        except ValueError:
+            pass # input is 'sqrt' or 'log2'.
+        if setting == 9:
+            reg = RandomForestQuantileRegressor(default_quantiles=qt, min_samples_leaf=30, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
+        else:
+            reg = RandomForestQuantileRegressor(default_quantiles=qt, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
     elif regressor == 'mlp':
         raise NotImplementedError("To be implemented.")
     
@@ -236,19 +243,31 @@ def run(sig, setting, seed, qt):
                 tm_list += te(0, 1)
             reg = LinearGAM(tm_list)
     
-    # fit (Y > 0) directly, not Y
-    reg.fit(Xtrain, 1 * (Ytrain > 0))
-    
-    # calibration 
-    calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
-    calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
-    calib_scores_clip = Ycalib * (Ycalib > 0) - reg.predict(Xcalib)
-    calib_scores_2clip = 1000 * (Ycalib > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
-    
-    Ypred = reg.predict(Xtest) 
-    test_scores = -Ypred
+    if 1 <= setting and setting <= 8:
+        # fit (Y > 0) directly, not Y
+        reg.fit(Xtrain, 1 * (Ytrain > 0))
+        
+        # calibration 
+        calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
+        calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
+        calib_scores_2clip = 1000 * (Ycalib > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
+        
+        Ypred = reg.predict(Xtest) 
+        test_scores = -Ypred
 
-    r_sq = r2_score((Ytest > 0), Ypred)
+        r_sq = r2_score((Ytest > 0), Ypred)
+    else:
+        reg.fit(Xtrain, Ytrain)
+        
+        # calibration 
+        calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
+        calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
+        calib_scores_2clip = 1000 * (Ycalib > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
+        
+        Ypred = reg.predict(Xtest) 
+        test_scores = -Ypred
+
+        r_sq = r2_score(Ytest, Ypred)
     
     # BH using residuals
     BH_res = BH(calib_scores, test_scores, q )

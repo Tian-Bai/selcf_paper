@@ -204,7 +204,14 @@ def run(sig, setting, seed, **kwargs):
         n_estim = int(kwargs["n_estim"])
         max_depth = int(kwargs["max_depth"])
         max_features = kwargs["max_features"]
-        reg = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
+        try:
+            max_features = int(max_features)
+        except ValueError:
+            pass # input is 'sqrt' or 'log2'.
+        if setting == 9:
+            reg = RandomForestRegressor(n_estimators=n_estim, min_samples_leaf=30, max_depth=max_depth, max_features=max_features, random_state=0)
+        else:
+            reg = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
     elif regressor == 'mlp':
         hidden = int(kwargs["hidden"])
         layers = int(kwargs["layers"])
