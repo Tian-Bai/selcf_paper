@@ -1,21 +1,14 @@
 import numpy as np
 import pandas as pd 
 from matplotlib import pyplot as plt
-import random
-import sys
-import os
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.svm import SVR
-from utility import gen_data, BH
 import argparse
 
-# plot the barchart for linear, additive, DL and Rf
+# plot the barchart for linear, additive, DL and Rf. Use a pre-defined set of parameters.
 
 parser = argparse.ArgumentParser(description='Experiment specifications.')
 parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests (seeds)', default=1000)
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
-parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=20)
+parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
 
 args = parser.parse_args()

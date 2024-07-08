@@ -9,6 +9,7 @@ from sklearn.svm import SVR
 from sklearn.metrics import r2_score
 from utility import gen_data, BH, Bonferroni
 from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
+from prediction_model import OracleRegressor
 from prediction_model import RfRegressor, MlpRegressor
 import argparse
 import itertools
@@ -24,7 +25,7 @@ mlp_param = ['hidden', 'layers']
 parser = argparse.ArgumentParser(description='Generate data for 4 targets (FDP, power, nsel and r^2) for any specified regressor and test case.')
 parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests (seeds)', default=1000)
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
-parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=20)
+parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
 
 # subparsers for different supported models
@@ -33,6 +34,7 @@ parser_rf = subparsers.add_parser('rf', help='rf regressor parser.')
 parser_mlp = subparsers.add_parser('mlp', help='mlp regressor parser.')
 parser_linear = subparsers.add_parser('linear', help='linear regressor parser.')
 parser_additive = subparsers.add_parser('additive', help='GAM regressor parser.')
+parser_oracle = subparsers.add_parser('oracle', help='Oracle regressor parser.')
 
 # for below two regressors, rf and mlp, we allow testing along an x axis representing the configuration of models (e.g. number of hidden layers, ...)
 # rf parser
@@ -47,10 +49,10 @@ parser_mlp.add_argument('config', type=mlp_config, help='other configurations of
 
 # for below two regressors, linear and additive, we allow choosing between whether to use interaction between the terms, and whether the interaction terms are 'oracle'.
 # linear parser
-parser_linear.add_argument('--interaction', dest='interaction', type=interaction_type, help='whether including interaction terms in the linear model')
+parser_linear.add_argument('--interaction', dest='interaction', type=interaction_type, help='whether including interaction terms in the linear model', default='no')
 
 # additive parser
-parser_additive.add_argument('--interaction', dest='interaction', type=interaction_type, help='whether including interaction terms in the additive model')
+parser_additive.add_argument('--interaction', dest='interaction', type=interaction_type, help='whether including interaction terms in the additive model', default='no')
 
 args = parser.parse_args()
 
@@ -96,6 +98,9 @@ elif regressor in ['linear', 'additive']:
 
     out_dir = f"..\\csv\\{regressor}\\interaction={interaction}"
     full_out_dir = f"..\\csv\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+elif regressor == 'oracle':
+    out_dir = f"..\\csv\\{regressor}"
+    full_out_dir = f"..\\csv\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
@@ -116,10 +121,6 @@ def run(sig, setting, seed, **kwargs):
     Xcalib, Ycalib, mu_calib = gen_data(setting, n, sig, dim=dim)
     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig, dim=dim)
     true_null = sum(Ytest > 0)
-    # don't consider the no true null case (rejection sampling)
-    # while true_null == 0:
-    #     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig)
-    #     true_null = sum(Ytest > 0)
     
     # MLP with 'layer' hidden layer, each of size 'hidden'
     if regressor == 'rf':
@@ -188,6 +189,8 @@ def run(sig, setting, seed, **kwargs):
             if setting in [6, 7, 8]:
                 tm_list += te(0, 1)
             reg = LinearGAM(tm_list)
+    elif regressor == 'oracle':
+        reg = OracleRegressor(setting=setting)
     
     if 1 <= setting and setting <= 8:
         # fit (Y > 0) directly, not Y
@@ -301,6 +304,11 @@ if __name__ == '__main__':
     elif regressor in ['linear', 'additive']:
         combined_itr = itertools.product(sig_list, set_list, seed_list, [interaction])
         combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, [interaction])
+        total_len = len(sig_list) * len(set_list) * len(seed_list)
+        total_len2 = len(sig_list2) * len(set_list2) * len(seed_list)
+    elif regressor == 'oracle':
+        combined_itr = itertools.product(sig_list, set_list, seed_list)
+        combined_itr2 = itertools.product(sig_list2, set_list2, seed_list)
         total_len = len(sig_list) * len(set_list) * len(seed_list)
         total_len2 = len(sig_list2) * len(set_list2) * len(seed_list)
 

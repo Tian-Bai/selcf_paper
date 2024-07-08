@@ -15,7 +15,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Experiment specifications.')
 parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests (seeds)', default=1000)
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
-parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=20)
+parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
 
 args = parser.parse_args()

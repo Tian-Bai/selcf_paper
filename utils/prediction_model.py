@@ -107,13 +107,13 @@ class MlpRegressor():
     def __init__(self, setting: int, hidden_layers=(32, ) * 4):
         assert 1 <= setting <= 8
         if setting == 1:
-            mlp = MLPRegressor(hidden_layer_sizes=hidden_layers, random_state=0, alpha=0.5, max_iter=1000, learning_rate_init=1e-4, early_stopping=True, tol=1e-6)
+            self.model = MLPRegressor(hidden_layer_sizes=hidden_layers, random_state=0, alpha=0.5, max_iter=1000, learning_rate_init=1e-4, early_stopping=True, tol=1e-6)
         if setting in [2, 3, 4]:
-            mlp = MLPRegressor(hidden_layer_sizes=hidden_layers, random_state=0, alpha=0.5, max_iter=1000, learning_rate_init=1e-4, early_stopping=True, tol=1e-6)
+            self.model = MLPRegressor(hidden_layer_sizes=hidden_layers, random_state=0, alpha=0.5, max_iter=1000, learning_rate_init=1e-4, early_stopping=True, tol=1e-6)
         if setting == 5:
-            mlp = MLPRegressor(hidden_layer_sizes=hidden_layers, random_state=0, alpha=2, max_iter=1000, learning_rate_init=1e-4, early_stopping=True, tol=1e-6)
+            self.model = MLPRegressor(hidden_layer_sizes=hidden_layers, random_state=0, alpha=2, max_iter=1000, learning_rate_init=1e-4, early_stopping=True, tol=1e-6)
         if setting in [6, 7, 8]:
-            mlp = MLPRegressor(hidden_layer_sizes=hidden_layers, random_state=0, alpha=0.2, max_iter=1000, learning_rate_init=1e-4, early_stopping=True, tol=1e-6)
+            self.model = MLPRegressor(hidden_layer_sizes=hidden_layers, random_state=0, alpha=0.2, max_iter=1000, learning_rate_init=1e-4, early_stopping=True, tol=1e-6)
 
     def fit(self, X, y):
         self.model.fit(X, y)

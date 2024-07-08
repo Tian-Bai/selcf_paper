@@ -108,7 +108,11 @@ class MLPQuantileRegressor(nn.Module):
         # pinball loss
         return torch.mean(torch.max(self.alpha * error, (self.alpha - 1) * error))
 
-
+''' 
+Generate data for experiments.
+Setting 1 ~ 8: from selection inference paper (no covariate shift).
+Setting 9: from CQR paper.
+'''
 def gen_data(setting, n, sig, dim=20):     
     if setting == 0:
         X = np.random.uniform(low=-1, high=1, size=n*dim).reshape((n,dim))
@@ -178,6 +182,10 @@ def gen_data(setting, n, sig, dim=20):
             Y[i] += 25 * (np.random.uniform(0, 1, 1) < 0.01) * np.random.randn(1)
         return X, Y, None
 
+''' 
+Generate data for experiments.
+Setting 1 ~ 4 are 2-dimensional version of setting 1, 2, 5, 6 in the 1d case.
+'''
 def gen_data_2d(setting, n, sig, covar, dim=20):
     X = np.random.uniform(low=-1, high=1, size=n*dim).reshape((n,dim))
     # generate a multivariate case
@@ -201,7 +209,7 @@ def gen_data_2d(setting, n, sig, covar, dim=20):
         Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
     
-    if setting == 5:
+    if setting == 3:
         mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3]) + (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
         mu_x2 = (X[:,2] * X[:,1] > 0) * (X[:,0] > 0.5) * (0.25 + X[:,0]) + (X[:,2] * X[:,1] <= 0) * (X[:,0] < -0.5) * (X[:,0] - 0.25)
         mean = np.column_stack((mu_x1, mu_x2))
@@ -211,7 +219,7 @@ def gen_data_2d(setting, n, sig, covar, dim=20):
         Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
     
-    if setting == 6:
+    if setting == 4:
         mu_x1 = (X[:,0] * X[:,1] + X[:,2] ** 2 + np.exp(X[:,3] - 1) - 1) * 2
         mu_x2 = (X[:,3] * X[:,1] + X[:,0] ** 2 + np.exp(X[:,2] - 1) - 1) * 2
         mean = np.column_stack((mu_x1, mu_x2))

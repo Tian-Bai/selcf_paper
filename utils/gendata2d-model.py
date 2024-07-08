@@ -13,6 +13,7 @@ from sklearn.svm import SVR
 from sklearn.metrics import r2_score
 from utility import gen_data, gen_data_2d, BH, Bonferroni
 from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
+from prediction_model import OracleRegressor2d
 import argparse
 import itertools
 from multiprocessing import Pool
@@ -32,7 +33,7 @@ If the regressor if mlp, parameters are ['hidden', 'layers'].
 parser = argparse.ArgumentParser(description='Generate data for 4 targets (FDP, power, nsel and r^2) for any specified regressor and test case.')
 parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests (seeds)', default=1000)
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
-parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=20)
+parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
 
 # subparsers for different supported models
@@ -41,6 +42,7 @@ parser_rf = subparsers.add_parser('rf', help='rf regressor parser.')
 parser_mlp = subparsers.add_parser('mlp', help='mlp regressor parser.')
 parser_linear = subparsers.add_parser('linear', help='linear regressor parser.')
 parser_additive = subparsers.add_parser('additive', help='GAM regressor parser.')
+parser_oracle = subparsers.add_parser('oracle', help='Oracle regressor parser.')
 
 # for below two regressors, rf and mlp, we allow testing along an x axis representing the configuration of models (e.g. number of hidden layers, ...)
 # rf parser
@@ -107,6 +109,9 @@ elif regressor in ['linear', 'additive']:
 
     out_dir = f"..\\csv2d\\{regressor}\\interaction={interaction}"
     full_out_dir = f"..\\csv2d\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+elif regressor == 'oracle':
+    out_dir = f"..\\csv2d\\{regressor}"
+    full_out_dir = f"..\\csv2d\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv" 
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
@@ -215,6 +220,8 @@ def run(sig, covar, setting, seed, **kwargs):
                 tm_list += te(0, 1)
                 tm_list += te(1, 3)
             reg = LinearGAM(tm_list)
+    elif regressor == 'oracle':
+        reg = OracleRegressor2d(setting=setting)
     
     # fit Y
     reg.fit(Xtrain, Ytrain)
@@ -318,6 +325,11 @@ if __name__ == '__main__':
     elif regressor in ['linear', 'additive']:
         combined_itr = itertools.product(sig_list, covar_list, set_list, seed_list, [interaction])
         combined_itr2 = itertools.product(sig_list2, covar_list2, set_list2, seed_list, [interaction])
+        total_len = len(sig_list) * len(covar_list) * len(set_list) * len(seed_list)
+        total_len2 = len(sig_list2) * len(covar_list2) * len(set_list2) * len(seed_list)
+    elif regressor == 'oracle':
+        combined_itr = itertools.product(sig_list, covar_list, set_list, seed_list)
+        combined_itr2 = itertools.product(sig_list2, covar_list2, set_list2, seed_list)
         total_len = len(sig_list) * len(covar_list) * len(set_list) * len(seed_list)
         total_len2 = len(sig_list2) * len(covar_list2) * len(set_list2) * len(seed_list)
 
