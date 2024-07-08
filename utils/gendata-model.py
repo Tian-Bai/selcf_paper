@@ -1,17 +1,15 @@
 import numpy as np
 import pandas as pd 
-from matplotlib import pyplot as plt
 import random
-import sys
 import os
-from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.neural_network import MLPRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.svm import SVR
 from sklearn.metrics import r2_score
-from utils import gen_data, BH, Bonferroni
+from utility import gen_data, BH, Bonferroni
+from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
+from prediction_model import RfRegressor, MlpRegressor
 import argparse
 import itertools
 from multiprocessing import Pool
@@ -21,81 +19,6 @@ from pygam.terms import TermList
 
 rf_param = ['n_estim', 'max_depth', 'max_features']
 mlp_param = ['hidden', 'layers']
-
-''' 
-If the regressor is rf, parameters are ['n_estim', 'max_depth', 'max_features'].
-If the regressor if mlp, parameters are ['hidden', 'layers'].
-'''
-
-def range_arg(value):
-    try:
-        values = [int(i) for i in value.split(',')]
-        assert len(values) == 3
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Provide a comma-seperated list of 1, 2 or 3 integers'
-        )
-    return values
-
-def rf_str(value):
-    try:
-        assert str(value) in rf_param
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for rf x-axis.'
-        )
-    return str(value)
-
-def rf_config(value):
-    try:
-        pairs = {}
-        for pair in value.split(','):
-            k, v = pair.split(':')
-            assert k in rf_param
-            pairs[k.strip()] = v.strip()
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for rf configurations.'
-        )
-    return pairs
-
-def mlp_str(value):
-    try:
-        assert str(value) in mlp_param
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for mlp x-axis.'
-        )
-    return str(value)
-
-def mlp_config(value):
-    try:
-        pairs = {}
-        for pair in value.split(','):
-            k, v = pair.split(':')
-            assert k in mlp_param
-            pairs[k.strip()] = v.strip()
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for mlp configurations.'
-        )
-    return pairs
-
-def interaction_type(value):
-    try:
-        s = str(value).lower()
-        assert s in ['yes', 'y', 'no', 'n', 'oracle', 'o']
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for linear model type. Should be either "yes", "no", or "oracle".'
-        )
-    if s == 'y':
-        s = 'yes'
-    elif s == 'n':
-        s = 'no'
-    elif s == 'o':
-        s = 'oracle'
-    return s
 
 # parsers, and general configurations
 parser = argparse.ArgumentParser(description='Generate data for 4 targets (FDP, power, nsel and r^2) for any specified regressor and test case.')
@@ -142,7 +65,7 @@ q = 0.1
 sig_list = [0.5]
 sig_list2 = [0.2]
 
-set_list = [9]
+set_list = [1, 2, 3, 4]
 set_list2 = [5, 6, 7, 8]
 
 seed_list = [i for i in range(0, itr)]
@@ -191,7 +114,6 @@ def run(sig, setting, seed, **kwargs):
 
     Xtrain, Ytrain, mu_train = gen_data(setting, n, sig, dim=dim)
     Xcalib, Ycalib, mu_calib = gen_data(setting, n, sig, dim=dim)
-
     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig, dim=dim)
     true_null = sum(Ytest > 0)
     # don't consider the no true null case (rejection sampling)
@@ -208,14 +130,15 @@ def run(sig, setting, seed, **kwargs):
             max_features = int(max_features)
         except ValueError:
             pass # input is 'sqrt' or 'log2'.
+
+        reg = RfRegressor(setting=setting, n_estimators=n_estim, max_depth=max_depth, max_features=max_features)
         if setting == 9:
-            reg = RandomForestRegressor(n_estimators=n_estim, min_samples_leaf=30, max_depth=max_depth, max_features=max_features, random_state=0)
-        else:
-            reg = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
+            # TODO
+            reg = RandomForestRegressor(n_estimators=n_estim, min_samples_leaf=30, max_depth=max_depth, max_features=max_features)
     elif regressor == 'mlp':
         hidden = int(kwargs["hidden"])
         layers = int(kwargs["layers"])
-        reg = MLPRegressor(hidden_layer_sizes=(hidden, ) * layers, random_state=0, learning_rate_init=1e-4, max_iter=2000, early_stopping=True, tol=3e-4)
+        reg = MlpRegressor(setting=setting, hidden_layers=(hidden, ) * layers)
     elif regressor == 'linear':
         if kwargs["interaction"] == "no":
             # no interaction
@@ -383,11 +306,11 @@ if __name__ == '__main__':
 
     with Pool(processes=6) as pool:
         results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))
-    # with Pool(processes=6) as pool:
-    #     results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
+    with Pool(processes=6) as pool:
+        results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
 
     all_res = pd.concat(results, ignore_index=True)
-    # all_res2 = pd.concat(results2, ignore_index=True)
-    # all_res = pd.concat((all_res, all_res2), ignore_index=True)
+    all_res2 = pd.concat(results2, ignore_index=True)
+    all_res = pd.concat((all_res, all_res2), ignore_index=True)
                         
     all_res.to_csv(full_out_dir) 

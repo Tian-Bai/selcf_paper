@@ -12,7 +12,8 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import QuantileRegressor
 from sklearn.svm import SVR
 from sklearn.metrics import r2_score
-from utils import gen_data, BH, Bonferroni
+from utility import gen_data, BH, Bonferroni
+from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
 import argparse
 import itertools
 from multiprocessing import Pool
@@ -28,59 +29,6 @@ mlp_param = ['hidden', 'layers']
 If the regressor is rf, parameters are ['n_estim', 'max_depth', 'max_features'].
 If the regressor if mlp, parameters are ['hidden', 'layers'].
 '''
-
-def range_arg(value):
-    try:
-        values = [float(i) for i in value.split(',')]
-        assert len(values) == 3
-        values[2] = int(values[2])
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Provide a comma-seperated list of 1, 2 or 3 integers'
-        )
-    return values
-
-def rf_config(value):
-    try:
-        pairs = {}
-        for pair in value.split(','):
-            k, v = pair.split(':')
-            assert k in rf_param
-            pairs[k.strip()] = v.strip()
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for rf configurations.'
-        )
-    return pairs
-
-def mlp_config(value):
-    try:
-        pairs = {}
-        for pair in value.split(','):
-            k, v = pair.split(':')
-            assert k in mlp_param
-            pairs[k.strip()] = v.strip()
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for mlp configurations.'
-        )
-    return pairs
-
-def interaction_type(value):
-    try:
-        s = str(value).lower()
-        assert s in ['yes', 'y', 'no', 'n', 'oracle', 'o']
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for linear model type. Should be either "yes", "no", or "oracle".'
-        )
-    if s == 'y':
-        s = 'yes'
-    elif s == 'n':
-        s = 'no'
-    elif s == 'o':
-        s = 'oracle'
-    return s
 
 # parsers, and general configurations
 parser = argparse.ArgumentParser(description='Generate data for 4 targets (FDP, power, nsel and r^2) for any specified regressor and test case.')
@@ -126,7 +74,7 @@ qt_list = args.qt
 sig_list = [0.5]
 sig_list2 = [0.2]
 
-set_list = [9]
+set_list = [1, 2, 3, 4]
 set_list2 = [5, 6, 7, 8]
 
 # # trivial setting
@@ -164,12 +112,7 @@ def run(sig, setting, seed, qt):
     Xtrain, Ytrain, mu_train = gen_data(setting, n, sig, dim=dim)
     Xcalib, Ycalib, mu_calib = gen_data(setting, n, sig, dim=dim)
     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig, dim=dim)
-
     true_null = sum(Ytest > 0)
-    # don't consider the no true null case (rejection sampling)
-    # while true_null == 0:
-    #     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig)
-    #     true_null = sum(Ytest > 0)
     
     # MLP with 'layer' hidden layer, each of size 'hidden'
     if regressor == 'rf':
@@ -180,6 +123,9 @@ def run(sig, setting, seed, qt):
             max_features = int(max_features)
         except ValueError:
             pass # input is 'sqrt' or 'log2'.
+        ''' 
+        TODO: refactor this part to use the wrapper predictor
+        '''
         if setting == 9:
             reg = RandomForestQuantileRegressor(default_quantiles=qt, min_samples_leaf=30, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
         else:

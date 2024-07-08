@@ -66,6 +66,7 @@ def interaction_type(value):
 
 parser = argparse.ArgumentParser(description='Select regressor and configurations.')
 parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests (seeds)', default=100)
+parser.add_argument('-q', '--nominal', dest='q', type=float, help='nominal FDP', default=0.1)
 
 subparsers = parser.add_subparsers(dest='regressor', required=True, help='The target regressor. Choose between ["rf", "mlp", "additive", "linear", ...].')
 parser_rf = subparsers.add_parser('rf', help='rf regressor parser.')
@@ -73,6 +74,7 @@ parser_mlp = subparsers.add_parser('mlp', help='mlp regressor parser.')
 parser_linear = subparsers.add_parser('linear', help='linear regressor parser.')
 parser_additive = subparsers.add_parser('additive', help='GAM regressor parser.')
 parser_mlp_dp = subparsers.add_parser('mlp_DP', help='mlp-DP regressor parser.')
+parser_transformer_dp = subparsers.add_parser('transformer_DP', help='transformer_DP regressor parser.')
 
 # for below two regressors, rf and mlp, we allow testing along an x axis representing the configuration of models (e.g. number of hidden layers, ...)
 # rf parser
@@ -144,31 +146,31 @@ def eval_sel(sel_idx, ys, cs):
         power = np.sum(ys[sel_idx] > cs[sel_idx]) / sum(ys > cs) 
     return fdp, power, len(sel_idx)
 
+X_drugs, y, drugs_index = dataset.load_HIV(path = './data')
+drug_encoding = 'Morgan'
+q = args.q
+n = len(y)
+
+seed_list = [i for i in range(0, args.itr)]
+
 if args.regressor in ['linear', 'additive']:
     out_dir = f"..\\csv-HIV\\{args.regressor}"
-    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\itr={args.itr}.csv"
+    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\itr={args.itr} q={q}.csv"
 elif args.regressor == 'rf':
     config = args.config
     out_dir = f"..\\csv-HIV\\{args.regressor}"
-    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\{rf_param[0]}={config[rf_param[0]]} {rf_param[1]}={config[rf_param[1]]} {rf_param[2]}={config[rf_param[2]]} itr={args.itr}.csv"
+    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\{rf_param[0]}={config[rf_param[0]]} {rf_param[1]}={config[rf_param[1]]} {rf_param[2]}={config[rf_param[2]]} itr={args.itr} q={q}.csv"
 elif args.regressor == 'mlp':
     config = args.config
     out_dir = f"..\\csv-HIV\\{args.regressor}"
-    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\{mlp_param[0]}={config[mlp_param[0]]} {mlp_param[1]}={config[mlp_param[1]]} itr={args.itr}.csv"
-elif args.regressor == 'mlp_DP':
+    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\{mlp_param[0]}={config[mlp_param[0]]} {mlp_param[1]}={config[mlp_param[1]]} itr={args.itr} q={q}.csv"
+elif args.regressor in ['mlp_DP', 'transformer_DP']:
     out_dir = f"..\\csv-HIV\\{args.regressor}"
-    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\itr={args.itr}.csv"
+    full_out_dir = f"..\\csv-HIV\\{args.regressor}\\itr={args.itr} q={q}.csv"
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
     print("Output diretory created!")
-
-X_drugs, y, drugs_index = dataset.load_HIV(path = './data')
-drug_encoding = 'Morgan'
-
-n = len(y)
-
-seed_list = [i for i in range(0, args.itr)]
 
 def run(seed):
     reind = np.random.permutation(n)
@@ -237,8 +239,33 @@ def run(seed):
 
             all_pred = np.array(model.predict(dother))
             train_pred = np.array(model.predict(ttrain))
+    elif args.regressor == 'transformer_DP':
+        # need to re-encode data
+        with suppress_print():
+            ttrain, tval, ttest = utils.data_process(X_drug = X_drugs_train, y = y_train, 
+                                                    drug_encoding = 'Transformer',
+                                                    split_method='random', frac=[0.7, 0.1, 0.2],
+                                                    random_seed = seed)
 
-    if args.regressor != 'mlp_DP':
+            dother = utils.data_process(X_drug = X_drugs_other, y = y_other, 
+                                                drug_encoding = 'Transformer',
+                                                split_method='no_split',
+                                                random_seed = seed)
+            
+            model_config = utils.generate_config(drug_encoding = 'Transformer', 
+                                cls_hidden_dims = [1024, 1024, 512], 
+                                train_epoch = 3, 
+                                LR = 0.001, 
+                                batch_size = 128,
+                                hidden_dim_drug = 128,
+                                )
+            model = CompoundPred.model_initialize(**model_config)
+            model.train(ttrain, tval, ttest)
+
+            all_pred = np.array(model.predict(dother))
+            train_pred = np.array(model.predict(ttrain))
+
+    if args.regressor not in ['mlp_DP', 'transformer_DP']:
         ttest_label = ttest.Label.to_numpy()
         ttest_predictor = np.stack(ttest['drug_encoding'].to_numpy()) 
         ttest_pred = model.predict(ttest_predictor)
@@ -266,8 +293,6 @@ def run(seed):
     calib_scores_clip = 100 * (y_calib > c) + c * (y_calib <= c) - hat_mu_calib
 
     test_scores = c - hat_mu_test
-
-    q = 0.1 # nominal level
 
     single, _ = single_select(calib_scores_clip, test_scores, q)
     bonf, _ = bonf_select(calib_scores_clip, test_scores, q)

@@ -3,41 +3,80 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 import torch
 import torch.nn as nn
+import argparse
 
-class OracleRegressor():
-    def __init__(self, setting: int):
-        assert 1 <= setting and setting <= 8
-        self.s = setting
-        self.model = LinearRegression()
+rf_param = ['n_estim', 'max_depth', 'max_features']
+mlp_param = ['hidden', 'layers']
 
-    def extract(self, X):
-        if self.s == 1:
-            U1 = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5))
-            U2 = (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
-            return np.column_stack((U1, U2))
-        
-        if 2 <= self.s and self.s <= 4:
-            U1 = X[:,0] * X[:,1]
-            U2 = np.exp(X[:,3] - 1)
-            return np.column_stack((U1, U2))
+def range_arg(value):
+    try:
+        values = [int(i) for i in value.split(',')]
+        assert len(values) == 3
+    except (ValueError, AssertionError):
+        raise argparse.ArgumentTypeError(
+            'Provide a comma-seperated list of 1, 2 or 3 integers'
+        )
+    return values
 
-        if self.s == 5:
-            U1 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3])
-            U2 = (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
-            return np.column_stack((U1, U2))
-        
-        if 6 <= self.s and self.s <= 8:
-            U1 = X[:,0] * X[:,1]
-            U2 = X[:,2] ** 2
-            U3 = np.exp(X[:,3] - 1)
-            return np.column_stack((U1, U2, U3))
+def rf_str(value):
+    try:
+        assert str(value) in rf_param
+    except (ValueError, AssertionError):
+        raise argparse.ArgumentTypeError(
+            'Illegal argument for rf x-axis.'
+        )
+    return str(value)
 
-    def fit(self, X, Y):
-        self.model.fit(self.extract(X), Y)
+def rf_config(value):
+    try:
+        pairs = {}
+        for pair in value.split(','):
+            k, v = pair.split(':')
+            assert k in rf_param
+            pairs[k.strip()] = v.strip()
+    except (ValueError, AssertionError):
+        raise argparse.ArgumentTypeError(
+            'Illegal argument for rf configurations.'
+        )
+    return pairs
 
-    def predict(self, X):
-        return self.model.predict(self.extract(X))
-    
+def mlp_str(value):
+    try:
+        assert str(value) in mlp_param
+    except (ValueError, AssertionError):
+        raise argparse.ArgumentTypeError(
+            'Illegal argument for mlp x-axis.'
+        )
+    return str(value)
+
+def mlp_config(value):
+    try:
+        pairs = {}
+        for pair in value.split(','):
+            k, v = pair.split(':')
+            assert k in mlp_param
+            pairs[k.strip()] = v.strip()
+    except (ValueError, AssertionError):
+        raise argparse.ArgumentTypeError(
+            'Illegal argument for mlp configurations.'
+        )
+    return pairs
+
+def interaction_type(value):
+    try:
+        s = str(value).lower()
+        assert s in ['yes', 'y', 'no', 'n', 'oracle', 'o']
+    except (ValueError, AssertionError):
+        raise argparse.ArgumentTypeError(
+            'Illegal argument for linear model type. Should be either "yes", "no", or "oracle".'
+        )
+    if s == 'y':
+        s = 'yes'
+    elif s == 'n':
+        s = 'no'
+    elif s == 'o':
+        s = 'oracle'
+    return s
 
 # for deep learning quantile regressors, need to write manually with torch
 ''' 
@@ -139,15 +178,15 @@ def gen_data(setting, n, sig, dim=20):
             Y[i] += 25 * (np.random.uniform(0, 1, 1) < 0.01) * np.random.randn(1)
         return X, Y, None
 
-def gen_data_2d(setting, n, sig, dim=20):
+def gen_data_2d(setting, n, sig, covar, dim=20):
     X = np.random.uniform(low=-1, high=1, size=n*dim).reshape((n,dim))
     # generate a multivariate case
     if setting == 1:
         mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5)) + (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
         mu_x2 = (X[:,1] * X[:,2] > 0) * (X[:,0] * (X[:,0] > 0.5) + 0.5 * (X[:,2] <= 0.5)) + (X[:,1] * X[:,2] <= 0) * (X[:,2] * (X[:,1] < -0.5) - 0.5 * (X[:,1] > -0.5))
         mean = np.column_stack((mu_x1, mu_x2))
-        cov = [[      sig, 0 * sig],
-               [0 * sig,       sig]]
+        cov = [[      sig, covar * sig],
+               [covar * sig,       sig]]
         rng = np.random.default_rng(33)
         Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
@@ -156,8 +195,8 @@ def gen_data_2d(setting, n, sig, dim=20):
         mu_x1 = (X[:,0] * X[:,1] + np.exp(X[:,3] - 1)) * 5
         mu_x2 = (X[:,1] * X[:,2] + np.exp(X[:,0] - 1)) * 5
         mean = np.column_stack((mu_x1, mu_x2))
-        cov = [[      sig, 0 * sig],
-               [0 * sig,       sig]]
+        cov = [[      sig, covar * sig],
+               [covar * sig,       sig]]
         rng = np.random.default_rng(33)
         Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
@@ -166,8 +205,8 @@ def gen_data_2d(setting, n, sig, dim=20):
         mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3]) + (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
         mu_x2 = (X[:,2] * X[:,1] > 0) * (X[:,0] > 0.5) * (0.25 + X[:,0]) + (X[:,2] * X[:,1] <= 0) * (X[:,0] < -0.5) * (X[:,0] - 0.25)
         mean = np.column_stack((mu_x1, mu_x2))
-        cov = [[      sig, 0 * sig],
-               [0 * sig,       sig]]
+        cov = [[      sig, covar * sig],
+               [covar * sig,       sig]]
         rng = np.random.default_rng(33)
         Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
@@ -176,8 +215,8 @@ def gen_data_2d(setting, n, sig, dim=20):
         mu_x1 = (X[:,0] * X[:,1] + X[:,2] ** 2 + np.exp(X[:,3] - 1) - 1) * 2
         mu_x2 = (X[:,3] * X[:,1] + X[:,0] ** 2 + np.exp(X[:,2] - 1) - 1) * 2
         mean = np.column_stack((mu_x1, mu_x2))
-        cov = [[      sig, 0 * sig],
-               [0 * sig,       sig]]
+        cov = [[      sig, covar * sig],
+               [covar * sig,       sig]]
         rng = np.random.default_rng(33)
         Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov

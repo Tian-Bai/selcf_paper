@@ -11,7 +11,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.svm import SVR
 from sklearn.metrics import r2_score
-from utils import gen_data, gen_data_2d, BH, Bonferroni
+from utility import gen_data, gen_data_2d, BH, Bonferroni
+from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
 import argparse
 import itertools
 from multiprocessing import Pool
@@ -26,76 +27,6 @@ mlp_param = ['hidden', 'layers']
 If the regressor is rf, parameters are ['n_estim', 'max_depth', 'max_features'].
 If the regressor if mlp, parameters are ['hidden', 'layers'].
 '''
-
-def range_arg(value):
-    try:
-        values = [int(i) for i in value.split(',')]
-        assert len(values) == 3
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Provide a comma-seperated list of 1, 2 or 3 integers'
-        )
-    return values
-
-def rf_str(value):
-    try:
-        assert str(value) in rf_param
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for rf x-axis.'
-        )
-    return str(value)
-
-def rf_config(value):
-    try:
-        pairs = {}
-        for pair in value.split(','):
-            k, v = pair.split(':')
-            assert k in rf_param
-            pairs[k.strip()] = v.strip()
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for rf configurations.'
-        )
-    return pairs
-
-def mlp_str(value):
-    try:
-        assert str(value) in mlp_param
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for mlp x-axis.'
-        )
-    return str(value)
-
-def mlp_config(value):
-    try:
-        pairs = {}
-        for pair in value.split(','):
-            k, v = pair.split(':')
-            assert k in mlp_param
-            pairs[k.strip()] = v.strip()
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for mlp configurations.'
-        )
-    return pairs
-
-def interaction_type(value):
-    try:
-        s = str(value).lower()
-        assert s in ['yes', 'y', 'no', 'n', 'oracle', 'o']
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for linear model type. Should be either "yes", "no", or "oracle".'
-        )
-    if s == 'y':
-        s = 'yes'
-    elif s == 'n':
-        s = 'no'
-    elif s == 'o':
-        s = 'oracle'
-    return s
 
 # parsers, and general configurations
 parser = argparse.ArgumentParser(description='Generate data for 4 targets (FDP, power, nsel and r^2) for any specified regressor and test case.')
@@ -138,9 +69,12 @@ sigma = '0.5(4)-0.2(4)'
 dim = args.dim
 q = 0.1
 
-# hardcode the sigma
+# hardcode the sigma and covar
 sig_list = [0.5]
 sig_list2 = [0.2]
+
+covar_list = [0.1]
+covar_list2 = [0.1]
 
 set_list = [1, 2]
 set_list2 = [5, 6]
@@ -190,7 +124,7 @@ def dist(Y):
             l.append(0)
     return np.array(l)
 
-def run(sig, setting, seed, **kwargs):
+def run(sig, covar, setting, seed, **kwargs):
     if regressor == 'rf':
         assert set(kwargs.keys()) <= set(rf_param)
     elif regressor == 'mlp':
@@ -201,10 +135,10 @@ def run(sig, setting, seed, **kwargs):
     df = pd.DataFrame()
     random.seed(seed)
 
-    Xtrain, Ytrain, mu1_train, mu2_train, cov_train = gen_data_2d(setting, n, sig, dim=dim)
-    Xcalib, Ycalib, mu1_calib, mu2_calib, cov_calib = gen_data_2d(setting, n, sig, dim=dim)
+    Xtrain, Ytrain, mu1_train, mu2_train, cov_train = gen_data_2d(setting, n, sig, covar, dim=dim)
+    Xcalib, Ycalib, mu1_calib, mu2_calib, cov_calib = gen_data_2d(setting, n, sig, covar, dim=dim)
 
-    Xtest, Ytest, mu1_test, mu2_test, cov_test = gen_data_2d(setting, ntest, sig, dim=dim)
+    Xtest, Ytest, mu1_test, mu2_test, cov_test = gen_data_2d(setting, ntest, sig, covar, dim=dim)
 
     # suppose the null hypothesis is Y1 or Y2 <= 0
     true_null = sum((Ytest[:, 0] > 0) & (Ytest[:, 1] > 0))
@@ -218,8 +152,15 @@ def run(sig, setting, seed, **kwargs):
     if regressor == 'rf':
         n_estim = int(kwargs["n_estim"])
         max_depth = int(kwargs["max_depth"])
-        max_features = int(kwargs["max_features"])
-        reg = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0)
+        max_features = kwargs["max_features"]
+        try:
+            max_features = int(max_features)
+        except ValueError:
+            pass # input is 'sqrt' or 'log2'.
+        ''' 
+        TODO: tune parameters for 2d task and then replace below to use wrapper class.
+        '''
+        reg = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0, min_samples_leaf=15)
     elif regressor == 'mlp':
         hidden = int(kwargs["hidden"])
         layers = int(kwargs["layers"])
@@ -323,7 +264,7 @@ def run(sig, setting, seed, **kwargs):
         Bonf_fdp = 0
         Bonf_power = 0
     else:
-        Bonf_fdp = np.sum((Ytest[Bonf][:, 0] <= 0) | (Ytest[Bonf][:, 1] <= 0)) / len(BH_2clip)
+        Bonf_fdp = np.sum((Ytest[Bonf][:, 0] <= 0) | (Ytest[Bonf][:, 1] <= 0)) / len(Bonf)
         Bonf_power = np.sum((Ytest[Bonf][:, 0] > 0) & (Ytest[Bonf][:, 1] > 0)) / true_null if true_null != 0 else 0
 
     df_dict = {
@@ -354,31 +295,31 @@ def run(sig, setting, seed, **kwargs):
     return df
 
 def run2(tup):
-    sig, setting, seed, x = tup
+    sig, covar, setting, seed, x = tup
 
     if regressor == 'rf':
         n_estim = x if xaxis == 'n_estim' else config["n_estim"]
         max_depth = x if xaxis == 'max_depth' else config["max_depth"]
         max_features = x if xaxis == 'max_features' else config["max_features"]
-        return run(sig, setting, seed, n_estim=n_estim, max_depth=max_depth, max_features=max_features)
+        return run(sig, covar, setting, seed, n_estim=n_estim, max_depth=max_depth, max_features=max_features)
     elif regressor == 'mlp':
         hidden = x if xaxis == 'hidden' else config["hidden"]
         layers = x if xaxis == 'layers' else config["layers"]
-        return run(sig, setting, seed, hidden=hidden, layers=layers)
+        return run(sig, covar, setting, seed, hidden=hidden, layers=layers)
     elif regressor in ['linear', 'additive']:
-        return run(sig, setting, seed, interaction=x)
+        return run(sig, covar, setting, seed, interaction=x)
 
 if __name__ == '__main__':
     if regressor in ['rf', 'mlp']:
-        combined_itr = itertools.product(sig_list, set_list, seed_list, range(*xrange))
-        combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, range(*xrange))
-        total_len = len(sig_list) * len(set_list) * len(seed_list) * len(range(*xrange))
-        total_len2 = len(sig_list2) * len(set_list2) * len(seed_list) * len(range(*xrange))
+        combined_itr = itertools.product(sig_list, covar_list, set_list, seed_list, range(*xrange))
+        combined_itr2 = itertools.product(sig_list2, covar_list2, set_list2, seed_list, range(*xrange))
+        total_len = len(sig_list) * len(covar_list) * len(set_list) * len(seed_list) * len(range(*xrange))
+        total_len2 = len(sig_list2) * len(covar_list2) * len(set_list2) * len(seed_list) * len(range(*xrange))
     elif regressor in ['linear', 'additive']:
-        combined_itr = itertools.product(sig_list, set_list, seed_list, [interaction])
-        combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, [interaction])
-        total_len = len(sig_list) * len(set_list) * len(seed_list)
-        total_len2 = len(sig_list2) * len(set_list2) * len(seed_list)
+        combined_itr = itertools.product(sig_list, covar_list, set_list, seed_list, [interaction])
+        combined_itr2 = itertools.product(sig_list2, covar_list2, set_list2, seed_list, [interaction])
+        total_len = len(sig_list) * len(covar_list) * len(set_list) * len(seed_list)
+        total_len2 = len(sig_list2) * len(covar_list2) * len(set_list2) * len(seed_list)
 
     with Pool(processes=6) as pool:
         results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))

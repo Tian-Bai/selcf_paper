@@ -28,12 +28,12 @@ q = 0.1
 
 targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
 
-linear_no_df = pd.read_csv(f"..\\csv\\linear\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-linear_oracle_df = pd.read_csv(f"..\\csv\\linear\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+linear_no_df = pd.read_csv(f"..\\csv2d\\linear\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+linear_oracle_df = pd.read_csv(f"..\\csv2d\\linear\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 # linear_yes_df = pd.read_csv(f"..\\csv\\linear\\interaction=yes\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 
-additive_no_df = pd.read_csv(f"..\\csv\\additive\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-additive_oracle_df = pd.read_csv(f"..\\csv\\additive\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+# additive_no_df = pd.read_csv(f"..\\csv\\additive\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+# additive_oracle_df = pd.read_csv(f"..\\csv\\additive\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 # additive_yes_df = pd.read_csv(f"..\\csv\\additive\\interaction=yes\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 
 linear_no_df['regressor'] = 'linear-no'
@@ -41,16 +41,16 @@ linear_no_df = linear_no_df.drop(columns=['interaction'])
 linear_oracle_df['regressor'] = 'linear-oracle'
 linear_oracle_df = linear_oracle_df.drop(columns=['interaction'])
 
-additive_no_df['regressor'] = 'additive-no'
-additive_no_df = additive_no_df.drop(columns=['interaction'])
-additive_oracle_df['regressor'] = 'additive-oracle'
-additive_oracle_df = additive_oracle_df.drop(columns=['interaction'])
+# additive_no_df['regressor'] = 'additive-no'
+# additive_no_df = additive_no_df.drop(columns=['interaction'])
+# additive_oracle_df['regressor'] = 'additive-oracle'
+# additive_oracle_df = additive_oracle_df.drop(columns=['interaction'])
 
-rf_df = pd.read_csv(f"..\\csv\\rf\\max_depth\\1,51,1 n_estim=50 max_features=sqrt ntest={ntest} itr={itr} sigma={sigma} dim=10.csv")
-rf_df = rf_df[rf_df["max_depth"] == 10]
+rf_df = pd.read_csv(f"..\\csv2d\\rf\\max_depth\\20,21,1 n_estim=50 max_features=10 ntest={ntest} itr={itr} sigma={sigma} dim=20.csv")
+rf_df = rf_df[rf_df["max_depth"] == 20]
 rf_df = rf_df.drop(columns=['max_features', 'max_depth', 'n_estim'])
 
-mlp_df = pd.read_csv(f"..\\csv\\mlp\\layers\\3,4,1 hidden=32 ntest={ntest} itr={itr} sigma={sigma} dim=20.csv")
+mlp_df = pd.read_csv(f"..\\csv2d\\mlp\\hidden\\32,33,1 layers=3 ntest={ntest} itr={itr} sigma={sigma} dim=20.csv")
 mlp_df = mlp_df[mlp_df["layers"] == 3]
 mlp_df = mlp_df.drop(columns=['hidden', 'layers'])
 
@@ -58,23 +58,24 @@ linear_no_df = linear_no_df.groupby(['set', 'regressor', 'dim']).mean().reset_in
 linear_oracle_df = linear_oracle_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 # linear_yes_df = linear_yes_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
-additive_no_df = additive_no_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
-additive_oracle_df = additive_oracle_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
+# additive_no_df = additive_no_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
+# additive_oracle_df = additive_oracle_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 # additive_yes_df = additive_yes_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
 rf_df = rf_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 mlp_df = mlp_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
-combined_df = pd.concat([linear_no_df, linear_oracle_df, additive_no_df, additive_oracle_df, rf_df, mlp_df], axis=0, ignore_index=True)
+combined_df = pd.concat([linear_no_df, linear_oracle_df, rf_df, mlp_df], axis=0, ignore_index=True)
+# combined_df = pd.concat([linear_no_df, linear_oracle_df, additive_no_df, additive_oracle_df, rf_df, mlp_df], axis=0, ignore_index=True)
 
-oracledf = pd.read_csv(f"..\\csv\\oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+oracledf = pd.read_csv(f"..\\csv2d\\oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 oracledf = oracledf.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
 grouped = combined_df.groupby(['set'])
 # bonf_grouped = average_bonf_df.groupby(['set', 'ntest'])
 
-regressor = ['linear-no', 'linear-oracle', 'additive-no', 'additive-oracle', 'rf', 'mlp']
-categories_name = ['linear', 'lin.-inter.', 'additive', 'add.-inter.', 'rf', 'mlp']
+regressor = ['linear-no', 'linear-oracle', 'rf', 'mlp']
+categories_name = ['linear', 'lin.-inter.', 'rf', 'mlp']
 
 for (target, tname) in targets:
     fig, axs = plt.subplots(figsize=(14, 10), nrows = 2, ncols = 2, sharex=True, sharey=True)
