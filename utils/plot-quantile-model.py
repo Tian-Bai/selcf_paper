@@ -114,6 +114,8 @@ for (target, tname) in targets:
             pass
         
         axs[x][y].set_xlabel(f'Setting {s}')
+        if target == 'power':
+            axs[x][y].set_ylim((0, 1.1))
         idx += 1
 
     fig.supxlabel(f"quantile-{regressor} - qt")

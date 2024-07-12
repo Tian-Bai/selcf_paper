@@ -151,6 +151,8 @@ for (target, tname) in targets:
                 axs[x][y].axhline(y=r_sq)
             
         axs[x][y].set_xlabel(f'Setting {s}')
+        if target == 'power':
+            axs[x][y].set_ylim((0, 1.1))
         idx += 1
     if regressor in ['mlp', 'rf']:
         fig.supxlabel(f"{regressor} - {xaxis}")

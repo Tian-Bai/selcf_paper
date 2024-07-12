@@ -294,6 +294,8 @@ def run2(tup):
         return run(sig, setting, seed, hidden=hidden, layers=layers)
     elif regressor in ['linear', 'additive']:
         return run(sig, setting, seed, interaction=x)
+    elif regressor == 'oracle':
+        return run(sig, setting, seed)
 
 if __name__ == '__main__':
     if regressor in ['rf', 'mlp']:
@@ -307,8 +309,8 @@ if __name__ == '__main__':
         total_len = len(sig_list) * len(set_list) * len(seed_list)
         total_len2 = len(sig_list2) * len(set_list2) * len(seed_list)
     elif regressor == 'oracle':
-        combined_itr = itertools.product(sig_list, set_list, seed_list)
-        combined_itr2 = itertools.product(sig_list2, set_list2, seed_list)
+        combined_itr = itertools.product(sig_list, set_list, seed_list, [None])
+        combined_itr2 = itertools.product(sig_list2, set_list2, seed_list, [None])
         total_len = len(sig_list) * len(set_list) * len(seed_list)
         total_len2 = len(sig_list2) * len(set_list2) * len(seed_list)
 

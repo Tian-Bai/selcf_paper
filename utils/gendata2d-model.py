@@ -149,11 +149,6 @@ def run(sig, covar, setting, seed, **kwargs):
 
     # suppose the null hypothesis is Y1 or Y2 <= 0
     true_null = sum((Ytest[:, 0] > 0) & (Ytest[:, 1] > 0))
-
-    # don't consider the no true null case (rejection sampling)
-    # while true_null == 0:
-    #     Xtest, Ytest, mu_test = gen_data(setting, ntest, sig)
-    #     true_null = sum(Ytest > 0)
     
     # MLP with 'layer' hidden layer, each of size 'hidden'
     if regressor == 'rf':
