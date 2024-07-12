@@ -27,6 +27,7 @@ parser_rf = subparsers.add_parser('rf', help='rf regressor parser.')
 parser_mlp = subparsers.add_parser('mlp', help='mlp regressor parser.')
 parser_linear = subparsers.add_parser('linear', help='linear regressor parser.')
 parser_additive = subparsers.add_parser('additive', help='GAM regressor parser.')
+parser_oracle = subparsers.add_parser('oracle', help='Oracle regressor parser.')
 
 # for below two regressors, rf and mlp, we allow testing along an x axis representing the configuration of models (e.g. number of hidden layers, ...)
 # rf parser
@@ -80,6 +81,9 @@ elif regressor in ['linear', 'additive']:
 
     df = pd.read_csv(f"..\\csv2d\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim', 'interaction']
+elif regressor == 'oracle':
+    df = pd.read_csv(f"..\\csv2d\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    gb = ['set', 'regressor', 'dim']
 
 df = df.groupby(gb).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
@@ -134,12 +138,12 @@ for (target, tname) in targets:
             y = idx % 4
             if target != 'r_squared':
                 if idx == 0:
-                    #axs[x][y].axhline(y=BH_res, color='red', label="BH_res")
+                    # axs[x][y].axhline(y=BH_res, color='red', label="BH_res")
                     axs[x][y].axhline(y=BH_rel, label="BH_sub", alpha=0.8)
                     axs[x][y].axhline(y=BH_2clip, color='orange', label="BH_2clip", alpha=0.8)
                     #axs[x][y].axhline(y=bon, label="Bonferroni")
                 else:
-                    #axs[x][y].axhline(y=BH_res)
+                    # axs[x][y].axhline(y=BH_res, alpha=0.8, color='red')
                     axs[x][y].axhline(y=BH_rel, alpha=0.8)
                     axs[x][y].axhline(y=BH_2clip, color='orange', alpha=0.8)
                     #axs[x][y].axhline(y=bon)
@@ -159,3 +163,5 @@ for (target, tname) in targets:
         plt.savefig(f'{regressor}-complexity {target} {xrange[0]},{xrange[1]},{xrange[2]} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
     elif regressor in ['linear', 'additive']:
         plt.savefig(f'{regressor} {target} interaction={interaction} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
+    elif regressor == 'oracle':
+        plt.savefig(f'{regressor} {target} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')

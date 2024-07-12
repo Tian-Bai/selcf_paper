@@ -72,14 +72,14 @@ dim = args.dim
 q = 0.1
 
 # hardcode the sigma and covar
-sig_list = [0.5]
-sig_list2 = [0.2]
+sig_list = [0.1]
+sig_list2 = [0.1]
 
 covar_list = [0.1]
 covar_list2 = [0.1]
 
-set_list = [1, 2]
-set_list2 = [5, 6]
+set_list = [1, 2, 3, 4]
+set_list2 = [5, 6, 7, 8]
 
 seed_list = [i for i in range(0, itr)]
 
@@ -125,8 +125,10 @@ def dist(Y):
     for i in range(len(Y)):
         if Y[i, 0] >= 0 and Y[i, 1] >= 0:
             l.append(max(Y[i, 0], Y[i, 1]))
+        elif Y[i, 0] < 0 and Y[i, 1] < 0:
+            l.append(-np.sqrt(Y[i, 0] ** 2 + Y[i, 1] ** 2))
         else:
-            l.append(0)
+            l.append(min(Y[i, 0], Y[i, 1]))
     return np.array(l)
 
 def run(sig, covar, setting, seed, **kwargs):
@@ -183,10 +185,10 @@ def run(sig, covar, setting, seed, **kwargs):
         elif kwargs["interaction"] == "oracle":
             if setting in [1, 2]:
                 transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 2]))
-            if setting == 5:
+            if setting == 3:
                 transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 2], x[:, 0] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2],
                                                         x[:, 0] * x[:, 1], x[:, 1] * x[:, 3], x[:, 0] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]))
-            if setting == 6:
+            if setting == 4:
                 transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 3]))
 
             Xtrain = transf(Xtrain)
@@ -230,7 +232,7 @@ def run(sig, covar, setting, seed, **kwargs):
     # calibration 
     calib_scores = dist(Ycalib) - dist(Ypred_calib)                                       # BH_res
     calib_scores0 = - dist(Ypred_calib)                                                   # BH_sub
-    calib_scores_2clip = 1000 * dist(Ycalib) - dist(Ypred_calib)                          # BH_clip (with M = 1000)
+    calib_scores_2clip = 1000 * ((Ycalib[:, 0] > 0) & (Ycalib[:, 1] > 0)) - dist(Ypred_calib)                          # BH_clip (with M = 1000)
 
     Ypred = reg.predict(Xtest) 
     test_scores = - dist(Ypred)
@@ -315,6 +317,8 @@ def run2(tup):
         return run(sig, covar, setting, seed, hidden=hidden, layers=layers)
     elif regressor in ['linear', 'additive']:
         return run(sig, covar, setting, seed, interaction=x)
+    elif regressor == 'oracle':
+        return run(sig, covar, setting, seed)
 
 if __name__ == '__main__':
     if regressor in ['rf', 'mlp']:
@@ -328,8 +332,8 @@ if __name__ == '__main__':
         total_len = len(sig_list) * len(covar_list) * len(set_list) * len(seed_list)
         total_len2 = len(sig_list2) * len(covar_list2) * len(set_list2) * len(seed_list)
     elif regressor == 'oracle':
-        combined_itr = itertools.product(sig_list, covar_list, set_list, seed_list)
-        combined_itr2 = itertools.product(sig_list2, covar_list2, set_list2, seed_list)
+        combined_itr = itertools.product(sig_list, covar_list, set_list, seed_list, [None])
+        combined_itr2 = itertools.product(sig_list2, covar_list2, set_list2, seed_list, [None])
         total_len = len(sig_list) * len(covar_list) * len(set_list) * len(seed_list)
         total_len2 = len(sig_list2) * len(covar_list2) * len(set_list2) * len(seed_list)
 

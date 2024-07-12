@@ -191,44 +191,111 @@ def gen_data_2d(setting, n, sig, covar, dim=20):
     # generate a multivariate case
     if setting == 1:
         mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5)) + (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
-        mu_x2 = (X[:,1] * X[:,2] > 0) * (X[:,0] * (X[:,0] > 0.5) + 0.5 * (X[:,2] <= 0.5)) + (X[:,1] * X[:,2] <= 0) * (X[:,2] * (X[:,1] < -0.5) - 0.5 * (X[:,1] > -0.5))
+        # mu_x2 = (X[:,1] * X[:,2] > 0) * (X[:,0] * (X[:,0] > 0.5) + 0.5 * (X[:,2] <= 0.5)) + (X[:,1] * X[:,2] <= 0) * (X[:,2] * (X[:,1] < -0.5) - 0.5 * (X[:,1] > -0.5))
+        mu_x2 = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5)) + (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
         mean = np.column_stack((mu_x1, mu_x2))
         cov = [[      sig, covar * sig],
                [covar * sig,       sig]]
         rng = np.random.default_rng(33)
-        Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        Y = mean
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
     
     if setting == 2:
         mu_x1 = (X[:,0] * X[:,1] + np.exp(X[:,3] - 1)) * 5
+        mu_x2 = (X[:,0] * X[:,1] + np.exp(X[:,3] - 1)) * 5
+        # mu_x2 = (X[:,1] * X[:,2] + np.exp(X[:,0] - 1)) * 5
+        mean = np.column_stack((mu_x1, mu_x2))
+        cov = [[      sig, covar * sig],
+               [covar * sig,       sig]]
+        rng = np.random.default_rng(33)
+        Y = mean
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        return X, Y, mu_x1, mu_x2, cov
+    
+    if setting == 3:
+        mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3]) + (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
+        mu_x2 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3]) + (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
+        # mu_x2 = (X[:,2] * X[:,1] > 0) * (X[:,0] > 0.5) * (0.25 + X[:,0]) + (X[:,2] * X[:,1] <= 0) * (X[:,0] < -0.5) * (X[:,0] - 0.25)
+        mean = np.column_stack((mu_x1, mu_x2))
+        cov = [[      sig, covar * sig],
+               [covar * sig,       sig]]
+        rng = np.random.default_rng(33)
+        Y = mean
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        return X, Y, mu_x1, mu_x2, cov
+    
+    if setting == 4:
+        mu_x1 = (X[:,0] * X[:,1] + X[:,2] ** 2 + np.exp(X[:,3] - 1) - 1) * 2
+        mu_x2 = (X[:,0] * X[:,1] + X[:,2] ** 2 + np.exp(X[:,3] - 1) - 1) * 2
+        # mu_x2 = (X[:,3] * X[:,1] + X[:,0] ** 2 + np.exp(X[:,2] - 1) - 1) * 2
+        mean = np.column_stack((mu_x1, mu_x2))
+        cov = [[      sig, covar * sig],
+               [covar * sig,       sig]]
+        rng = np.random.default_rng(33)
+        Y = mean
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        return X, Y, mu_x1, mu_x2, cov
+    
+    if setting == 5:
+        mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5)) + (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
+        mu_x2 = (X[:,1] * X[:,2] > 0) * (X[:,0] * (X[:,0] > 0.5) + 0.5 * (X[:,2] <= 0.5)) + (X[:,1] * X[:,2] <= 0) * (X[:,2] * (X[:,1] < -0.5) - 0.5 * (X[:,1] > -0.5))
+        # mu_x2 = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5)) + (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
+        mean = np.column_stack((mu_x1, mu_x2))
+        cov = [[      sig, covar * sig],
+               [covar * sig,       sig]]
+        rng = np.random.default_rng(33)
+        Y = mean
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        return X, Y, mu_x1, mu_x2, cov
+    
+    if setting == 6:
+        mu_x1 = (X[:,0] * X[:,1] + np.exp(X[:,3] - 1)) * 5
+        # mu_x2 = (X[:,0] * X[:,1] + np.exp(X[:,3] - 1)) * 5
         mu_x2 = (X[:,1] * X[:,2] + np.exp(X[:,0] - 1)) * 5
         mean = np.column_stack((mu_x1, mu_x2))
         cov = [[      sig, covar * sig],
                [covar * sig,       sig]]
         rng = np.random.default_rng(33)
-        Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        Y = mean
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
     
-    if setting == 3:
+    if setting == 7:
         mu_x1 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3]) + (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
+        # mu_x2 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3]) + (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
         mu_x2 = (X[:,2] * X[:,1] > 0) * (X[:,0] > 0.5) * (0.25 + X[:,0]) + (X[:,2] * X[:,1] <= 0) * (X[:,0] < -0.5) * (X[:,0] - 0.25)
         mean = np.column_stack((mu_x1, mu_x2))
         cov = [[      sig, covar * sig],
                [covar * sig,       sig]]
         rng = np.random.default_rng(33)
-        Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        Y = mean
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
     
-    if setting == 4:
+    if setting == 8:
         mu_x1 = (X[:,0] * X[:,1] + X[:,2] ** 2 + np.exp(X[:,3] - 1) - 1) * 2
+        # mu_x2 = (X[:,0] * X[:,1] + X[:,2] ** 2 + np.exp(X[:,3] - 1) - 1) * 2
         mu_x2 = (X[:,3] * X[:,1] + X[:,0] ** 2 + np.exp(X[:,2] - 1) - 1) * 2
         mean = np.column_stack((mu_x1, mu_x2))
         cov = [[      sig, covar * sig],
                [covar * sig,       sig]]
         rng = np.random.default_rng(33)
-        Y = mean + rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
+        Y = mean
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=[0, 0], cov=cov, size=n)
         return X, Y, mu_x1, mu_x2, cov
-
+    
+'''
+Calculate the conformal p-values and then apply Benjamini-Hochberg procedure to do selection while controlling FDR.
+'''
 def BH(calib_scores, test_scores, q = 0.1, return_pval=False):
     ntest = len(test_scores)
     ncalib = len(calib_scores)
@@ -255,6 +322,9 @@ def BH(calib_scores, test_scores, q = 0.1, return_pval=False):
         else:
             return idx_sel, pvals
     
+'''
+Calculate the conformal p-values and then apply Bonferroni correction to select.
+'''
 def Bonferroni(calib_scores, test_scores, q = 0.1):
     ntest = len(test_scores)
     ncalib = len(calib_scores)

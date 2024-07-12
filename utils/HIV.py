@@ -15,54 +15,12 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
 from multiprocessing import Pool
 from sklearn.metrics import r2_score
+from utility import rf_config, mlp_config, interaction_type
 
 rf_param = ['n_estim', 'max_depth', 'max_features']
 mlp_param = ['hidden', 'layers']
 
 # TODO: fine-tune the models (esp. MLP). Refactor codes if necessary.
-
-def rf_config(value):
-    try:
-        pairs = {}
-        for pair in value.split(','):
-            k, v = pair.split(':')
-            assert k in rf_param
-            pairs[k.strip()] = v.strip()
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for rf configurations.'
-        )
-    return pairs
-
-def mlp_config(value):
-    try:
-        pairs = {}
-        for pair in value.split(','):
-            k, v = pair.split(':')
-            assert k in mlp_param
-            pairs[k.strip()] = v.strip()
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for mlp configurations.'
-        )
-    return pairs
-
-def interaction_type(value):
-    try:
-        s = str(value).lower()
-        assert s in ['yes', 'y', 'no', 'n', 'oracle', 'o']
-    except (ValueError, AssertionError):
-        raise argparse.ArgumentTypeError(
-            'Illegal argument for linear model type. Should be either "yes", "no", or "oracle".'
-        )
-    if s == 'y':
-        s = 'yes'
-    elif s == 'n':
-        s = 'no'
-    elif s == 'o':
-        s = 'oracle'
-    return s
-
 
 parser = argparse.ArgumentParser(description='Select regressor and configurations.')
 parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests (seeds)', default=100)
