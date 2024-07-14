@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import argparse
 
-rf_param = ['n_estim', 'max_depth', 'max_features']
+rf_param = ['n_estim', 'max_depth', 'max_features', 'max_leaf_nodes']
 mlp_param = ['hidden', 'layers']
 
 def range_arg(value):

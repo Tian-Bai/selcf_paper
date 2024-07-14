@@ -18,7 +18,7 @@ from tqdm import tqdm
 from pygam import LinearGAM, s, te
 from pygam.terms import TermList
 
-rf_param = ['n_estim', 'max_depth', 'max_features']
+rf_param = ['n_estim', 'max_depth', 'max_features', 'max_leaf_nodes']
 mlp_param = ['hidden', 'layers']
 
 # parsers, and general configurations
@@ -27,6 +27,7 @@ parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
+parser.add_argument('-c', '--continuous', dest='cont', type=str, help='whether consider the data as continuous or not', default='False')
 
 # subparsers for different supported models
 subparsers = parser.add_subparsers(dest='regressor', required=True, help='The target regressor. Choose between ["rf", "mlp", "additive", "linear", ...].')
@@ -56,6 +57,7 @@ parser_additive.add_argument('--interaction', dest='interaction', type=interacti
 
 args = parser.parse_args()
 
+cont = args.cont
 regressor = args.regressor
 itr = args.itr
 ntest = args.ntest
@@ -82,8 +84,8 @@ if regressor == 'rf':
 
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
-    out_dir = f"..\\csv\\{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}"
+    full_out_dir = f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} {rf_param2[2]}={config[rf_param2[2]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 elif regressor == 'mlp':
     xaxis = args.xaxis
     xrange = args.range
@@ -91,16 +93,16 @@ elif regressor == 'mlp':
 
     mlp_param2 = [r for r in mlp_param]
     mlp_param2.remove(xaxis)
-    out_dir = f"..\\csv\\{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}"
+    full_out_dir = f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
-    out_dir = f"..\\csv\\{regressor}\\interaction={interaction}"
-    full_out_dir = f"..\\csv\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv\\cont={cont}\\{regressor}\\interaction={interaction}"
+    full_out_dir = f"..\\csv\\cont={cont}\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 elif regressor == 'oracle':
-    out_dir = f"..\\csv\\{regressor}"
-    full_out_dir = f"..\\csv\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv\\cont={cont}\\{regressor}"
+    full_out_dir = f"..\\csv\\cont={cont}\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
@@ -127,15 +129,20 @@ def run(sig, setting, seed, **kwargs):
         n_estim = int(kwargs["n_estim"])
         max_depth = int(kwargs["max_depth"])
         max_features = kwargs["max_features"]
+        max_leaf_nodes = kwargs["max_leaf_nodes"]
         try:
             max_features = int(max_features)
         except ValueError:
             pass # input is 'sqrt' or 'log2'.
+        try:
+            max_leaf_nodes = int(max_leaf_nodes)
+        except ValueError:
+            max_leaf_nodes = None # no restriction
 
-        reg = RfRegressor(setting=setting, n_estimators=n_estim, max_depth=max_depth, max_features=max_features)
+        reg = RfRegressor(setting=setting, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, max_leaf_nodes=max_leaf_nodes)
         if setting == 9:
             # TODO
-            reg = RandomForestRegressor(n_estimators=n_estim, min_samples_leaf=30, max_depth=max_depth, max_features=max_features)
+            reg = RandomForestRegressor(n_estimators=n_estim, min_samples_leaf=30, max_depth=max_depth, max_features=max_features, max_leaf_nodes=max_leaf_nodes)
     elif regressor == 'mlp':
         hidden = int(kwargs["hidden"])
         layers = int(kwargs["layers"])
@@ -192,7 +199,7 @@ def run(sig, setting, seed, **kwargs):
     elif regressor == 'oracle':
         reg = OracleRegressor(setting=setting)
     
-    if 1 <= setting and setting <= 8:
+    if args.cont == 'False':
         # fit (Y > 0) directly, not Y
         reg.fit(Xtrain, 1 * (Ytrain > 0))
         
@@ -205,7 +212,7 @@ def run(sig, setting, seed, **kwargs):
         test_scores = -Ypred
 
         r_sq = r2_score((Ytest > 0), Ypred)
-    else:
+    elif args.cont == 'True':
         reg.fit(Xtrain, Ytrain)
         # calibration 
         calib_scores = Ycalib - reg.predict(Xcalib)                          # BH_res
@@ -216,6 +223,7 @@ def run(sig, setting, seed, **kwargs):
         test_scores = -Ypred
 
         r_sq = r2_score(Ytest, Ypred)
+
     # BH using residuals
     BH_res = BH(calib_scores, test_scores, q )
     # summarize
@@ -287,7 +295,8 @@ def run2(tup):
         n_estim = x if xaxis == 'n_estim' else config["n_estim"]
         max_depth = x if xaxis == 'max_depth' else config["max_depth"]
         max_features = x if xaxis == 'max_features' else config["max_features"]
-        return run(sig, setting, seed, n_estim=n_estim, max_depth=max_depth, max_features=max_features)
+        max_leaf_nodes = x if xaxis == 'max_leaf_nodes' else config["max_leaf_nodes"]
+        return run(sig, setting, seed, n_estim=n_estim, max_depth=max_depth, max_features=max_features, max_leaf_nodes=max_leaf_nodes)
     elif regressor == 'mlp':
         hidden = x if xaxis == 'hidden' else config["hidden"]
         layers = x if xaxis == 'layers' else config["layers"]

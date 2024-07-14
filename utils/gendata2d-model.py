@@ -35,6 +35,7 @@ parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
+parser.add_argument('-c', '--continuous', dest='cont', type=str, help='whether consider the data as continuous or not', default='False')
 
 # subparsers for different supported models
 subparsers = parser.add_subparsers(dest='regressor', required=True, help='The target regressor. Choose between ["rf", "mlp", "additive", "linear", ...].')
@@ -64,10 +65,12 @@ parser_additive.add_argument('--interaction', dest='interaction', type=interacti
 
 args = parser.parse_args()
 
+cont = args.cont
 regressor = args.regressor
 itr = args.itr
 ntest = args.ntest
-sigma = '0.5(4)-0.2(4)'
+sigma = '0.1'
+cov = '0.1'
 dim = args.dim
 q = 0.1
 
@@ -93,8 +96,8 @@ if regressor == 'rf':
 
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
-    out_dir = f"..\\csv2d\\{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv2d\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}"
+    full_out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
 elif regressor == 'mlp':
     xaxis = args.xaxis
     xrange = args.range
@@ -102,16 +105,16 @@ elif regressor == 'mlp':
 
     mlp_param2 = [r for r in mlp_param]
     mlp_param2.remove(xaxis)
-    out_dir = f"..\\csv2d\\{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv2d\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}"
+    full_out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
-    out_dir = f"..\\csv2d\\{regressor}\\interaction={interaction}"
-    full_out_dir = f"..\\csv2d\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv"
+    out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\interaction={interaction}"
+    full_out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
 elif regressor == 'oracle':
-    out_dir = f"..\\csv2d\\{regressor}"
-    full_out_dir = f"..\\csv2d\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv" 
+    out_dir = f"..\\csv2d\\cont={cont}\\{regressor}"
+    full_out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv" 
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
@@ -220,19 +223,34 @@ def run(sig, covar, setting, seed, **kwargs):
     elif regressor == 'oracle':
         reg = OracleRegressor2d(setting=setting)
     
-    # fit Y
-    reg.fit(Xtrain, Ytrain)
-    Ypred_calib = reg.predict(Xcalib)
-    
-    # calibration 
-    calib_scores = dist(Ycalib) - dist(Ypred_calib)                                       # BH_res
-    calib_scores0 = - dist(Ypred_calib)                                                   # BH_sub
-    calib_scores_2clip = 1000 * ((Ycalib[:, 0] > 0) & (Ycalib[:, 1] > 0)) - dist(Ypred_calib)                          # BH_clip (with M = 1000)
+    if cont == 'True':
+        # fit Y
+        reg.fit(Xtrain, Ytrain)
+        Ypred_calib = reg.predict(Xcalib)
+        
+        # calibration 
+        calib_scores = dist(Ycalib) - dist(Ypred_calib)                                       # BH_res
+        calib_scores0 = - dist(Ypred_calib)                                                   # BH_sub
+        calib_scores_2clip = 1000 * ((Ycalib[:, 0] > 0) & (Ycalib[:, 1] > 0)) - dist(Ypred_calib)                          # BH_clip (with M = 1000)
 
-    Ypred = reg.predict(Xtest) 
-    test_scores = - dist(Ypred)
+        Ypred = reg.predict(Xtest) 
+        test_scores = - dist(Ypred)
 
-    r_sq = r2_score(Ytest, Ypred)
+        r_sq = r2_score(Ytest, Ypred)
+    elif cont == 'False':
+        # fit Y1 > 0, Y2 > 0
+        reg.fit(Xtrain, np.column_stack((Ytrain[:, 0] > 0, Ytrain[:, 1] > 0)))
+        Ypred_calib = reg.predict(Xcalib)
+
+        # calibration 
+        calib_scores = Ycalib[:, 0] + Ycalib[:, 1] - Ypred_calib[:, 0] - Ypred_calib[:, 1]                                 # BH_res
+        calib_scores0 = - Ypred_calib[:, 0] - Ypred_calib[:, 1]                                                            # BH_sub
+        calib_scores_2clip = 1000 * ((Ycalib[:, 0] > 0) & (Ycalib[:, 1] > 0)) - Ypred_calib[:, 0] - Ypred_calib[:, 1]   
+
+        Ypred = reg.predict(Xtest)
+        test_scores = - Ypred[:, 0] - Ypred[:, 1]   
+
+        r_sq = r2_score(np.column_stack((Ytest[:, 0] > 0, Ytest[:, 1] > 0)), Ypred)
     
     # BH using residuals
     BH_res = BH(calib_scores, test_scores, q )

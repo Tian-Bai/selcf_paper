@@ -168,12 +168,12 @@ class TrueRegressor2d():
 Wrapper classes for summarizing the best hyperparameters.
 '''
 class RfRegressor():
-    def __init__(self, setting: int, n_estimators=50, max_depth=20, max_features=10):
+    def __init__(self, setting: int, n_estimators=50, max_depth=20, max_features=10, max_leaf_nodes=None):
         assert 1 <= setting <= 8
         if setting != 5:
-            self.model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, random_state=0)
+            self.model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, random_state=0, max_leaf_nodes=max_leaf_nodes)
         else:
-            self.model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, min_samples_leaf=20, min_samples_split=20, random_state=0)
+            self.model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, min_samples_leaf=20, min_samples_split=20, random_state=0, max_leaf_nodes=max_leaf_nodes)
 
     def fit(self, X, y):
         self.model.fit(X, y)

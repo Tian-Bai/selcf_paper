@@ -11,13 +11,8 @@ from utility import gen_data, BH
 from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
 import argparse
 
-rf_param = ['n_estim', 'max_depth', 'max_features']
+rf_param = ['n_estim', 'max_depth', 'max_features', 'max_leaf_nodes']
 mlp_param = ['hidden', 'layers']
-
-''' 
-If the regressor is rf, parameters are ['n_estim', 'max_depth', 'max_features'].
-If the regressor if mlp, parameters are ['hidden', 'layers'].
-'''
 
 # parsers, and general configurations
 parser = argparse.ArgumentParser(description='Plot 4 targets (FDP, power, nsel and r^2) for any specified regressor and test case.')
@@ -25,6 +20,7 @@ parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
+parser.add_argument('-c', '--continuous', dest='cont', type=str, help='whether consider the data as continuous or not', default='False')
 
 # subparsers for different supported models
 subparsers = parser.add_subparsers(dest='regressor', required=True, help='The target regressor. Choose between ["rf", "mlp", "additive", "linear", ...].')
@@ -54,6 +50,7 @@ parser_additive.add_argument('--interaction', dest='interaction', type=interacti
 
 args = parser.parse_args()
 
+cont = args.cont
 regressor = args.regressor
 itr = args.itr
 ntest = args.ntest
@@ -70,7 +67,7 @@ if regressor == 'rf':
 
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
-    df = pd.read_csv(f"..\\csv\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} {rf_param2[2]}={config[rf_param2[2]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim'] + rf_param
 elif regressor == 'mlp':
     xaxis = args.xaxis
@@ -79,15 +76,15 @@ elif regressor == 'mlp':
 
     mlp_param2 = [r for r in mlp_param]
     mlp_param2.remove(xaxis)
-    df = pd.read_csv(f"..\\csv\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim'] + mlp_param
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
-    df = pd.read_csv(f"..\\csv\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv\\cont={cont}\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim', 'interaction']
 elif regressor == 'oracle':
-    df = pd.read_csv(f"..\\csv2d\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv2d\\cont={cont}\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim']
 
 df = df.groupby(gb).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])

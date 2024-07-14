@@ -10,9 +10,11 @@ parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
+parser.add_argument('-c', '--continuous', dest='cont', type=str, help='whether consider the data as continuous or not', default='False')
 
 args = parser.parse_args()
 
+cont = args.cont
 itr = args.itr
 ntest = args.ntest
 sigma = '0.5(4)-0.2(4)'
@@ -21,13 +23,13 @@ q = 0.1
 
 targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
 
-linear_no_df = pd.read_csv(f"..\\csv\\linear\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-linear_oracle_df = pd.read_csv(f"..\\csv\\linear\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-# linear_yes_df = pd.read_csv(f"..\\csv\\linear\\interaction=yes\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+linear_no_df = pd.read_csv(f"..\\csv\\cont={cont}\\linear\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+linear_oracle_df = pd.read_csv(f"..\\csv\\cont={cont}\\linear\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+# linear_yes_df = pd.read_csv(f"..\\csv\\cont={cont}\\linear\\interaction=yes\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 
-# additive_no_df = pd.read_csv(f"..\\csv\\additive\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-# additive_oracle_df = pd.read_csv(f"..\\csv\\additive\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
-# additive_yes_df = pd.read_csv(f"..\\csv\\additive\\interaction=yes\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+# additive_no_df = pd.read_csv(f"..\\csv\\cont={cont}\\additive\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+# additive_oracle_df = pd.read_csv(f"..\\csv\\cont={cont}\\additive\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+# additive_yes_df = pd.read_csv(f"..\\csv\\cont={cont}\\additive\\interaction=yes\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 
 linear_no_df['regressor'] = 'linear-no'
 linear_no_df = linear_no_df.drop(columns=['interaction'])
@@ -39,10 +41,10 @@ linear_oracle_df = linear_oracle_df.drop(columns=['interaction'])
 # additive_oracle_df['regressor'] = 'additive-oracle'
 # additive_oracle_df = additive_oracle_df.drop(columns=['interaction'])
 
-rf_df = pd.read_csv(f"..\\csv\\rf\\n_estim\\50,51,1 max_depth=30 max_features=10 ntest={ntest} itr={itr} sigma={sigma} dim=10.csv")
+rf_df = pd.read_csv(f"..\\csv\\cont={cont}\\rf\\n_estim\\50,51,1 max_depth=30 max_features=10 ntest={ntest} itr={itr} sigma={sigma} dim=10.csv")
 rf_df = rf_df.drop(columns=['max_features', 'max_depth', 'n_estim'])
 
-mlp_df = pd.read_csv(f"..\\csv\\mlp\\hidden\\32,33,1 layers=4 ntest={ntest} itr={itr} sigma={sigma} dim=10.csv")
+mlp_df = pd.read_csv(f"..\\csv\\cont={cont}\\mlp\\hidden\\32,33,1 layers=4 ntest={ntest} itr={itr} sigma={sigma} dim=10.csv")
 mlp_df = mlp_df.drop(columns=['hidden', 'layers'])
 
 linear_no_df = linear_no_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
@@ -60,7 +62,7 @@ combined_df = pd.concat([linear_no_df, linear_oracle_df, rf_df, mlp_df], axis=0,
 
 print(combined_df)
 
-oracledf = pd.read_csv(f"..\\csv\\oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+oracledf = pd.read_csv(f"..\\csv\\cont={cont}\\oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 oracledf = oracledf.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
 grouped = combined_df.groupby(['set'])

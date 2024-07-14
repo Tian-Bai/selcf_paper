@@ -20,6 +20,7 @@ parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
+parser.add_argument('-c', '--continuous', dest='cont', type=str, help='whether consider the data as continuous or not', default='False')
 
 # subparsers for different supported models
 subparsers = parser.add_subparsers(dest='regressor', required=True, help='The target regressor. Choose between ["rf", "mlp", "additive", "linear", ...].')
@@ -49,10 +50,12 @@ parser_additive.add_argument('--interaction', dest='interaction', type=interacti
 
 args = parser.parse_args()
 
+cont = args.cont
 regressor = args.regressor
 itr = args.itr
 ntest = args.ntest
-sigma = '0.5(4)-0.2(4)'
+sigma = '0.1'
+cov = '0.1'
 dim = args.dim
 q = 0.1
 
@@ -65,7 +68,7 @@ if regressor == 'rf':
 
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
-    df = pd.read_csv(f"..\\csv2d\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim'] + rf_param
 elif regressor == 'mlp':
     xaxis = args.xaxis
@@ -74,15 +77,15 @@ elif regressor == 'mlp':
 
     mlp_param2 = [r for r in mlp_param]
     mlp_param2.remove(xaxis)
-    df = pd.read_csv(f"..\\csv2d\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim'] + mlp_param
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
-    df = pd.read_csv(f"..\\csv2d\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv2d\\cont={cont}\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim', 'interaction']
 elif regressor == 'oracle':
-    df = pd.read_csv(f"..\\csv2d\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv2d\\cont={cont}\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim']
 
 df = df.groupby(gb).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
@@ -159,11 +162,11 @@ for (target, tname) in targets:
     elif regressor in ['linear', 'additive']:
         fig.supxlabel(f"{regressor}")
     fig.supylabel(f'{tname}')
-    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma} with {regressor} regressor. \n {ntest} tests and {dim} total features, averged over {itr} times.")
+    fig.suptitle(f"{tname} for different procedures and settings with control level 0.1, noise level {sigma}, {cov} with {regressor} regressor. \n {ntest} tests and {dim} total features, averged over {itr} times.")
     fig.legend()
     if regressor in ['mlp', 'rf']:
-        plt.savefig(f'{regressor}-complexity {target} {xrange[0]},{xrange[1]},{xrange[2]} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
+        plt.savefig(f'{regressor}-complexity {target} {xrange[0]},{xrange[1]},{xrange[2]} sigma={sigma} cov={cov} itr={itr} ntest={ntest} dim={dim}.png')
     elif regressor in ['linear', 'additive']:
-        plt.savefig(f'{regressor} {target} interaction={interaction} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
+        plt.savefig(f'{regressor} {target} interaction={interaction} sigma={sigma} cov={cov} itr={itr} ntest={ntest} dim={dim}.png')
     elif regressor == 'oracle':
-        plt.savefig(f'{regressor} {target} sigma={sigma} itr={itr} ntest={ntest} dim={dim}.png')
+        plt.savefig(f'{regressor} {target} sigma={sigma} cov={cov} itr={itr} ntest={ntest} dim={dim}.png')

@@ -11,14 +11,15 @@ from utility import gen_data, BH
 from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
 import argparse
 
-rf_param = ['n_estim', 'max_depth', 'max_features']
-mlp_param = ['hidden', 'layers']
+rf_param = ['n_estim', 'max_depth', 'max_features', 'max_leaf_nodes']          # some parameters that is related to the complexity of rf models
+mlp_param = ['hidden', 'layers']        
 
 parser = argparse.ArgumentParser(description='Plot 4 targets (FDP, power, nsel and r^2) for any specified regressor and test case.')
 parser.add_argument('-i', '--input', dest='itr', type=int, help='number of tests (seeds)', default=1000)
 # parser.add_argument('-s', '--sigma', dest='sigma', type=str, help='sigma level', default='0.5(4)-0.2(4)')
 parser.add_argument('-d', '--dim', dest='dim', type=int, help='number of features in generated data', default=10)
 parser.add_argument('-n', '--ntest', dest='ntest', type=int, help='number of tests (m) in the setting', default=100)
+parser.add_argument('-c', '--continuous', dest='cont', type=str, help='whether consider the data as continuous or not', default='False')
 
 subparsers = parser.add_subparsers(dest='regressor', required=True, help='The target regressor. Either "rf" or "mlp".')
 parser_rf = subparsers.add_parser('rf', help='rf regressor parser.')
@@ -34,6 +35,7 @@ parser_mlp.add_argument('config', type=mlp_config, help='other configurations of
 
 args = parser.parse_args()
 
+cont = args.cont
 regressor = args.regressor
 itr = args.itr
 ntest = args.ntest
@@ -50,12 +52,12 @@ basic_gb = ['set', 'regressor', 'dim']
 if regressor == 'rf':
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
-    df = pd.read_csv(f"..\\csv\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} {rf_param2[2]}={config[rf_param2[2]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = basic_gb + rf_param # groupby parameters
 elif regressor == 'mlp':
     mlp_param2 = [r for r in mlp_param]
     mlp_param2.remove(xaxis)
-    df = pd.read_csv(f"..\\csv\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = basic_gb + mlp_param
 
 df = df.groupby(gb).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
