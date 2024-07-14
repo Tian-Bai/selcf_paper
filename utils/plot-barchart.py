@@ -21,7 +21,7 @@ sigma = '0.5(4)-0.2(4)'
 dim = args.dim
 q = 0.1
 
-targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
+targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2'), ('accuracy', 'Accuracy')] # 'power', 'nsel'
 
 linear_no_df = pd.read_csv(f"..\\csv\\cont={cont}\\linear\\interaction=no\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 linear_oracle_df = pd.read_csv(f"..\\csv\\cont={cont}\\linear\\interaction=oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
@@ -81,15 +81,18 @@ for (target, tname) in targets:
         BH_rel = []
         BH_2clip = []
         r_sq = []
+        accuracy = []
         for reg in regressor:
-            if target != 'r_squared':
+            if target not in ['r_squared', 'accuracy']:
                 BH_rel.append(group[group["regressor"] == reg][f'BH_rel_{target}'].values[0])
                 BH_2clip.append(group[group["regressor"] == reg][f'BH_2clip_{target}'].values[0])
-            else:
+            elif target == 'r_squared':
                 r_sq.append(group[group["regressor"] == reg][f'r_squared'].values[0])
+            else:
+                accuracy.append(group[group["accuracy"] == reg][f'accuracy'].values[0])
         x = idx // 2
         y = idx % 2
-        if target != 'r_squared':
+        if target not in ['r_squared', 'accuracy']:
             if idx == 0:
                 axs[x][y].bar(np.arange(len(categories_name)), BH_rel, 0.2, label='BH_sub')
                 axs[x][y].bar(np.arange(len(categories_name)) + 0.2, BH_2clip, 0.2, label='BH_2clip')
@@ -105,12 +108,19 @@ for (target, tname) in targets:
             axs[x][y].set_xticks(np.arange(len(categories_name)) + 0.1, categories_name)
             if target == 'fdp':
                 axs[x][y].axhline(0.1, color='green')
-        else:
+        elif target == 'r_squared':
             if idx == 0:
                 axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'{target}'].values[0], linestyle='--', label='oracle', alpha=0.8)
             else:
                 axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'{target}'].values[0], linestyle='--', alpha=0.8)
             axs[x][y].bar(categories_name, r_sq, 0.35)
+            axs[x][y].axhline(0, color='black')
+        else:
+            if idx == 0:
+                axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'{target}'].values[0], linestyle='--', label='oracle', alpha=0.8)
+            else:
+                axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'{target}'].values[0], linestyle='--', alpha=0.8)
+            axs[x][y].bar(categories_name, accuracy, 0.35)
             axs[x][y].axhline(0, color='black')
         
         axs[x][y].set_xlabel(f'Setting {s if s < 5 else s - 2}')

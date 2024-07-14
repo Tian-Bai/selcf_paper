@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.svm import SVR
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, accuracy_score
 from utility import gen_data, BH, Bonferroni
 from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
 from prediction_model import OracleRegressor
@@ -212,6 +212,7 @@ def run(sig, setting, seed, **kwargs):
         test_scores = -Ypred
 
         r_sq = r2_score((Ytest > 0), Ypred)
+        accuracy = accuracy_score((Ytest > 0), (Ypred > 0.5))                # Ypred could be seen as the probability of 1
     elif args.cont == 'True':
         reg.fit(Xtrain, Ytrain)
         # calibration 
@@ -223,6 +224,7 @@ def run(sig, setting, seed, **kwargs):
         test_scores = -Ypred
 
         r_sq = r2_score(Ytest, Ypred)
+        accuracy = accuracy_score((Ytest > 0), (Ypred > 0))
 
     # BH using residuals
     BH_res = BH(calib_scores, test_scores, q )
@@ -270,6 +272,7 @@ def run(sig, setting, seed, **kwargs):
             'regressor': [regressor],
             'seed': [seed],
             'r_squared': [r_sq],
+            'accuracy': [accuracy],
             'BH_res_fdp': [BH_res_fdp], 
             'BH_res_power': [BH_res_power],
             'BH_res_nsel': [len(BH_res)],

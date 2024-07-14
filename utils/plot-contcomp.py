@@ -20,7 +20,7 @@ cov = '0.1'
 dim = args.dim
 q = 0.1
 
-targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
+targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2'), ('accuracy', 'Accuracy')] # 'power', 'nsel'
 
 oracle_1d_c_df = pd.read_csv(f"..\\csv\\cont=True\\oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 oracle_1d_c_df = oracle_1d_c_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
@@ -48,28 +48,38 @@ for (target, tname) in targets:
         BH_rel = []
         BH_2clip = []
         r_sq = []
-        if target != 'r_squared':
+        accuracy = []
+        if target not in ['r_squared', 'accuracy']:
             for s in settings:
                 BH_rel.append(combined_df.iloc[s][f'BH_rel_{target}'])
                 BH_2clip.append(combined_df.iloc[s][f'BH_2clip_{target}'])
-        else:
+        elif target == 'r_squared':
             for s in settings:
                 r_sq.append(combined_df.iloc[s][f'r_squared'])
+        else:
+            for s in settings:
+                accuracy.append(combined_df.iloc[s][f'accuracy'])
                 
         x = idx // 2
         y = idx % 2
-        if target != 'r_squared':
+        if target not in ['r_squared', 'accuracy']:
             if idx == 0:
                 axs[x][y].bar(np.arange(len(experiment_name)), BH_rel, 0.2, label='BH_sub')
                 axs[x][y].bar(np.arange(len(experiment_name)) + 0.2, BH_2clip, 0.2, label='BH_2clip')
             else:
                 axs[x][y].bar(np.arange(len(experiment_name)), BH_rel, 0.2)
                 axs[x][y].bar(np.arange(len(experiment_name)) + 0.2, BH_2clip, 0.2)
-        else:
+        elif target == 'r_squared':
             if idx == 0:
                 axs[x][y].bar(np.arange(len(experiment_name)) + 0.1, r_sq, 0.3, label='BH_sub')
             else:
                 axs[x][y].bar(np.arange(len(experiment_name)) + 0.1, r_sq, 0.3)
+        else:
+            if idx == 0:
+                axs[x][y].bar(np.arange(len(experiment_name)) + 0.1, accuracy, 0.3, label='BH_sub')
+            else:
+                axs[x][y].bar(np.arange(len(experiment_name)) + 0.1, accuracy, 0.3)
+                
         axs[x][y].set_xticks(np.arange(len(experiment_name)) + 0.1, experiment_name)
         axs[x][y].set_xlabel(f'Setting {i+1}')
         

@@ -58,7 +58,7 @@ sigma = '0.5(4)-0.2(4)'
 dim = args.dim
 q = 0.1
 
-targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')]
+targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2'), ('accuracy', 'Accuracy')]
 
 if regressor == 'rf':
     xaxis = args.xaxis
@@ -78,6 +78,9 @@ elif regressor == 'mlp':
     mlp_param2.remove(xaxis)
     df = pd.read_csv(f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim'] + mlp_param
+
+    # whether to use number of parameters as the xaxis?
+
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
@@ -102,17 +105,20 @@ for (target, tname) in targets:
             BH_2clip = []
             bon = []
             r_sq = []
+            accuracy = []
             for x in sorted(group[xaxis].unique()):
-                if target != 'r_squared':
+                if target not in ['r_squared', 'accuracy']:
                     BH_res.append(group[group[xaxis] == x][f'BH_res_{target}'].values[0])
                     BH_rel.append(group[group[xaxis] == x][f'BH_rel_{target}'].values[0])
                     BH_2clip.append(group[group[xaxis] == x][f'BH_2clip_{target}'].values[0])
                     bon.append(group[group[xaxis] == x][f'Bonf_{target}'].values[0])
-                else:
+                elif target == 'r_squared':
                     r_sq.append(group[group[xaxis] == x][f'r_squared'].values[0])
+                else:
+                    accuracy.append(group[group[xaxis] == x][f'accuracy'].values[0])
             x = idx // 4
             y = idx % 4
-            if target != 'r_squared':
+            if target not in ['r_squared', 'accuracy']:
                 if idx == 0:
                     # axs[x][y].plot(BH_res, marker='o', label="BH_res")
                     axs[x][y].plot(np.arange(*xrange), BH_rel, label="BH_sub")
@@ -123,22 +129,28 @@ for (target, tname) in targets:
                     axs[x][y].plot(np.arange(*xrange), BH_rel)
                     axs[x][y].plot(np.arange(*xrange), BH_2clip)
                     # axs[x][y].plot(bon, marker='o')
-            else:
+            elif target == 'r_squared':
                 if idx == 0:
                     axs[x][y].plot(np.arange(*xrange), r_sq, label="R^2")
                 else:
                     axs[x][y].plot(np.arange(*xrange), r_sq)
+            else:
+                if idx == 0:
+                    axs[x][y].plot(np.arange(*xrange), accuracy, label="Accuracy")
+                else:
+                    axs[x][y].plot(np.arange(*xrange), accuracy)
         else:
             # only plot horizontal lines
-            if target != 'r_squared':
+            if target not in ['r_squared', 'accuracy']:
                 BH_res = group[f'BH_res_{target}'].values[0]
                 BH_rel = group[f'BH_rel_{target}'].values[0]
                 BH_2clip = group[f'BH_2clip_{target}'].values[0]
                 bon = group[f'Bonf_{target}'].values[0]
             r_sq = group[f'r_squared'].values[0]
+            accuracy = group[f'accuracy'].values[0]
             x = idx // 4
             y = idx % 4
-            if target != 'r_squared':
+            if target not in ['r_squared', 'accuracy']:
                 if idx == 0:
                     #axs[x][y].axhline(y=BH_res, color='red', label="BH_res")
                     axs[x][y].axhline(y=BH_rel, label="BH_sub", alpha=0.8)
@@ -149,9 +161,10 @@ for (target, tname) in targets:
                     axs[x][y].axhline(y=BH_rel, alpha=0.8)
                     axs[x][y].axhline(y=BH_2clip, color='orange', alpha=0.8)
                     #axs[x][y].axhline(y=bon)
-            else:
+            elif target == 'r_squared':
                 axs[x][y].axhline(y=r_sq)
-            
+            else:
+                axs[x][y].axhline(y=accuracy)
         axs[x][y].set_xlabel(f'Setting {s}')
         if target == 'power':
             axs[x][y].set_ylim((0, 1.1))

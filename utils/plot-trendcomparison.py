@@ -77,12 +77,14 @@ for (target, tname) in targets:
         BH_2clip = []
         bon = []
         r_sq = []
+        accuracy = []
         for x in sorted(group[xaxis].unique()):
             BH_res.append(group[group[xaxis] == x][f'BH_res_{target}'].values[0])
             BH_rel.append(group[group[xaxis] == x][f'BH_rel_{target}'].values[0])
             BH_2clip.append(group[group[xaxis] == x][f'BH_2clip_{target}'].values[0])
             bon.append(group[group[xaxis] == x][f'Bonf_{target}'].values[0])
             r_sq.append(group[group[xaxis] == x][f'r_squared'].values[0])
+            accuracy.append(group[group[xaxis] == x][f'acciracu'].values[0])
         x = idx // 4
         y = idx % 4
         axs2 = axs[x][y].twinx()
@@ -91,6 +93,7 @@ for (target, tname) in targets:
             axs[x][y].plot(np.arange(*xrange), BH_rel, label="BH_sub")
             axs[x][y].plot(np.arange(*xrange), BH_2clip, label="BH_2clip")
             axs2.plot(np.arange(*xrange), r_sq, color='green', linestyle='-', linewidth=5, alpha=0.6, label='R^2')
+            axs2.plot(np.arange(*xrange), accuracy, color='purple', linestyle='-', linewidth=5, alpha=0.6, label='R^2')
 
             axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_rel_{target}'].values[0], linestyle='--', label='BH_sub (oracle)', alpha=0.8)
             axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_2clip_{target}'].values[0], linestyle='--', label='BH_2clip (oracle)', alpha=0.8, color='orange')
@@ -101,6 +104,7 @@ for (target, tname) in targets:
             axs[x][y].plot(np.arange(*xrange), BH_2clip)
             # axs[x][y].plot(bon, marker='o')
             axs2.plot(np.arange(*xrange), r_sq, color='green', linestyle='-', linewidth=5, alpha=0.6)
+            axs2.plot(np.arange(*xrange), accuracy, color='purple', linestyle='-', linewidth=5, alpha=0.6)
 
             axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_rel_{target}'].values[0], linestyle='--', alpha=0.8)
             axs[x][y].axhline(y=oracledf[oracledf['set'] == s][f'BH_2clip_{target}'].values[0], linestyle='--', alpha=0.8, color='orange')
