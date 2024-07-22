@@ -159,7 +159,7 @@ def run(sig, setting, seed, **kwargs):
             reg = LinearRegression()
         elif kwargs["interaction"] == "oracle":
             if setting == 1:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 2], x[:, 1] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2]))
+                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 3], x[:, 1] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]))
             if setting in [2, 3, 4]:
                 transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1]))
             if setting == 5:
@@ -188,7 +188,7 @@ def run(sig, setting, seed, **kwargs):
             for i in range(4): # alternatively, use 4 here
                 tm_list += s(i)
             if setting == 1:
-                tm_list += te(0, 1, 2)
+                tm_list += te(0, 1, 3)
             if setting in [2, 3, 4]:
                 tm_list += te(0, 1)
             if setting == 5:
@@ -326,9 +326,9 @@ if __name__ == '__main__':
         total_len = len(sig_list) * len(set_list) * len(seed_list)
         total_len2 = len(sig_list2) * len(set_list2) * len(seed_list)
 
-    with Pool(processes=6) as pool:
+    with Pool(processes=8) as pool:
         results = list(tqdm(pool.imap(run2, combined_itr), total=total_len))
-    with Pool(processes=6) as pool:
+    with Pool(processes=8) as pool:
         results2 = list(tqdm(pool.imap(run2, combined_itr2), total=total_len2))
 
     all_res = pd.concat(results, ignore_index=True)

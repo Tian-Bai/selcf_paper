@@ -67,7 +67,7 @@ if regressor == 'rf':
 
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
-    df = pd.read_csv(f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} {rf_param2[2]}={config[rf_param2[2]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
+    df = pd.read_csv(f"..\\csv\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} {rf_param2[2]}={config[rf_param2[2]]} ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv", keep_default_na=False, na_values=[])
     gb = ['set', 'regressor', 'dim'] + rf_param
 elif regressor == 'mlp':
     xaxis = args.xaxis
@@ -80,7 +80,27 @@ elif regressor == 'mlp':
     gb = ['set', 'regressor', 'dim'] + mlp_param
 
     # whether to use number of parameters as the xaxis?
-
+    # input: d
+    # output: 1
+    # (d+1) * hidden + (layers-1) * (hidden+1) * (hidden) + (hidden+1) * 1
+    # if no hidden layer:
+    # (d+1) * 1
+    xlist = np.arange(*xrange)
+    plotxlist = []
+    if xaxis == 'hidden': # at least 1 hidden layers
+        layers = int(config['layers'])
+        for x in xlist:
+            if layers != 0:
+                plotxlist.append((dim + 1) * x + (layers - 1) * (x + 1) * x + (x + 1) * 1)
+            else:
+                plotxlist.append((dim + 1) * 1)
+    elif xaxis == 'layers':
+        hidden = int(config['hidden'])
+        for x in xlist:
+            if x != 0:
+                plotxlist.append((dim + 1) * hidden + (x - 1) * (hidden + 1) * hidden + (hidden + 1) * 1)
+            else:
+                plotxlist.append((dim + 1) * 1)
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
@@ -89,16 +109,24 @@ elif regressor in ['linear', 'additive']:
 elif regressor == 'oracle':
     df = pd.read_csv(f"..\\csv2d\\cont={cont}\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
     gb = ['set', 'regressor', 'dim']
-
 df = df.groupby(gb).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
 
 grouped = df.groupby(['set'])
 
+plotxaxis = np.arange(*xrange)
+# for mlp, could choose to use model parameters as xaxis
+if regressor == 'mlp':
+    plotxaxis = plotxlist
+
+only1256 = True
+
 for (target, tname) in targets:
-    fig, axs = plt.subplots(figsize=(20, 10), nrows = 2, ncols = 4, sharex=True, sharey=True)
+    fig, axs = plt.subplots(figsize=(20, 10), nrows = 2, ncols = 2 if only1256 else 4, sharex=True, sharey=True)
     idx = 0
 
     for (s,), group in grouped:
+        if only1256 and s not in [1, 2, 5, 6]:
+            continue
         if regressor in ['rf', 'mlp'] and len(group[xaxis].unique()) > 1:
             BH_res = []
             BH_rel = []
@@ -116,29 +144,31 @@ for (target, tname) in targets:
                     r_sq.append(group[group[xaxis] == x][f'r_squared'].values[0])
                 else:
                     accuracy.append(group[group[xaxis] == x][f'accuracy'].values[0])
-            x = idx // 4
-            y = idx % 4
+            x = idx // (2 if only1256 else 4)
+            y = idx % (2 if only1256 else 4)
             if target not in ['r_squared', 'accuracy']:
                 if idx == 0:
                     # axs[x][y].plot(BH_res, marker='o', label="BH_res")
-                    axs[x][y].plot(np.arange(*xrange), BH_rel, label="BH_sub")
-                    axs[x][y].plot(np.arange(*xrange), BH_2clip, label="BH_2clip")
+                    axs[x][y].plot(plotxaxis, BH_rel, label="BH_sub")
+                    axs[x][y].plot(plotxaxis, BH_2clip, label="BH_2clip")
                     # axs[x][y].plot(bon, marker='o', label="Bonferroni")
                 else:
                     # axs[x][y].plot(BH_res, marker='o')
-                    axs[x][y].plot(np.arange(*xrange), BH_rel)
-                    axs[x][y].plot(np.arange(*xrange), BH_2clip)
+                    axs[x][y].plot(plotxaxis, BH_rel)
+                    axs[x][y].plot(plotxaxis, BH_2clip)
                     # axs[x][y].plot(bon, marker='o')
             elif target == 'r_squared':
                 if idx == 0:
-                    axs[x][y].plot(np.arange(*xrange), r_sq, label="R^2")
+                    axs[x][y].plot(plotxaxis, r_sq, label="R^2")
                 else:
-                    axs[x][y].plot(np.arange(*xrange), r_sq)
+                    axs[x][y].plot(plotxaxis, r_sq)
             else:
                 if idx == 0:
-                    axs[x][y].plot(np.arange(*xrange), accuracy, label="Accuracy")
+                    axs[x][y].plot(plotxaxis, accuracy, label="Accuracy")
                 else:
-                    axs[x][y].plot(np.arange(*xrange), accuracy)
+                    axs[x][y].plot(plotxaxis, accuracy)
+            # axs[x][y].set_xticks(plotxaxis, [(str(j) if i % 2 == 0 else "") for i, j in enumerate(plotxaxis)], fontsize=7)
+            #
         else:
             # only plot horizontal lines
             if target not in ['r_squared', 'accuracy']:
@@ -165,7 +195,7 @@ for (target, tname) in targets:
                 axs[x][y].axhline(y=r_sq)
             else:
                 axs[x][y].axhline(y=accuracy)
-        axs[x][y].set_xlabel(f'Setting {s}')
+        axs[x][y].set_xlabel(f'Setting {s if (only1256 and s > 4) else s}')
         if target == 'power':
             axs[x][y].set_ylim((0, 1.1))
         idx += 1

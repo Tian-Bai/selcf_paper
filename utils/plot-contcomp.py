@@ -20,7 +20,7 @@ cov = '0.1'
 dim = args.dim
 q = 0.1
 
-targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2'), ('accuracy', 'Accuracy')] # 'power', 'nsel'
+targets = [('fdp', 'FDP'), ('power', 'Power'), ('nsel', 'Number of rejections'), ('r_squared', 'Out of sample R^2')] # 'power', 'nsel'
 
 oracle_1d_c_df = pd.read_csv(f"..\\csv\\cont=True\\oracle\\ntest={ntest} itr={itr} sigma={sigma} dim={dim}.csv")
 oracle_1d_c_df = oracle_1d_c_df.groupby(['set', 'regressor', 'dim']).mean().reset_index().drop(columns=['Unnamed: 0', 'seed'])
@@ -36,7 +36,7 @@ oracle_2d_d_df = oracle_2d_d_df.groupby(['set', 'regressor', 'dim']).mean().rese
 
 combined_df = pd.concat([oracle_1d_c_df, oracle_1d_d_df, oracle_2d_c_df, oracle_2d_d_df], axis=0, ignore_index=True)
 
-experiment_name = ['1d-cont.', '1d-disc.', '2d-s.c.', '2d-s.d.', '2d-d.c.', '2d-d.d.']
+experiment_name = ['1d-cont.', '1d-disc.', '2d-s.c.', '2d-d.c.', '2d-s.d.', '2d-d.d.']
 # setting: 1, 1, (1 & 5), (1 & 5) / 2, 2, (2 & 6), (2 & 6) / 5, 5, (3 & 7), (3 & 7) / 6, 6, (4 & 8), (4 & 8)
 setting_iloc = [[0, 8, 16, 20, 24, 28], [1, 9, 17, 21, 25, 29], [4, 12, 18, 22, 26, 30], [5, 13, 19, 23, 27, 31]]
 

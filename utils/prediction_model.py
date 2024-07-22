@@ -46,6 +46,62 @@ class OracleRegressor():
     def predict(self, X):
         return self.model.predict(self.extract(X))
     
+class OracleRegressor2d_singledim():
+    def __init__(self, setting: int, d):
+        assert 1 <= setting and setting <= 8
+        self.s = setting
+        self.d = d
+        self.model = LinearRegression()
+
+    def extract(self, X):
+        if self.s == 1 or (self.s == 5 and self.d == 0):
+            U1 = (X[:,0] * X[:,1] > 0) * (X[:,3] * (X[:,3] > 0.5) + 0.5 * (X[:,3] <= 0.5))
+            U2 = (X[:,0] * X[:,1] <= 0) * (X[:,3] * (X[:,3] < -0.5) - 0.5 * (X[:,3] > -0.5))
+            return np.column_stack((U1, U2))
+        
+        if self.s == 2 or (self.s == 6 and self.d == 0):
+            U1 = X[:,0] * X[:,1]
+            U2 = np.exp(X[:,3] - 1)
+            return np.column_stack((U1, U2))
+
+        if self.s == 3 or (self.s == 7 and self.d == 0):
+            U1 = (X[:,0] * X[:,1] > 0) * (X[:,3] > 0.5) * (0.25 + X[:,3])
+            U2 = (X[:,0] * X[:,1] <= 0) * (X[:,3] < -0.5) * (X[:,3] - 0.25)
+            return np.column_stack((U1, U2))
+        
+        if self.s == 4 or (self.s == 8 and self.d == 0):
+            U1 = X[:,0] * X[:,1]
+            U2 = X[:,2] ** 2
+            U3 = np.exp(X[:,3] - 1)
+            return np.column_stack((U1, U2, U3))
+
+        if self.s == 5 and self.d == 1:
+            U1 = (X[:,1] * X[:,2] > 0) * (X[:,0] * (X[:,0] > 0.5) + 0.5 * (X[:,0] <= 0.5)) 
+            U2 = (X[:,1] * X[:,2] <= 0) * (X[:,0] * (X[:,0] < -0.5) - 0.5 * (X[:,0] > -0.5))
+            return np.column_stack((U1, U2))
+        
+        if self.s == 6 and self.d == 1:
+            U1 = (X[:,1] * X[:,2])
+            U2 = np.exp(X[:,0] - 1)
+            return np.column_stack((U1, U2))
+        
+        if self.s == 7 and self.d == 1:
+            U1 = (X[:,2] * X[:,1] > 0) * (X[:,0] > 0.5) * (0.25 + X[:,0]) 
+            U2 = (X[:,2] * X[:,1] <= 0) * (X[:,0] < -0.5) * (X[:,0] - 0.25)
+            return np.column_stack((U1, U2))
+        
+        if self.s == 8 and self.d == 1:
+            U1 = (X[:,3] * X[:,1])
+            U2 = X[:,0] ** 2
+            U3 = np.exp(X[:,2] - 1) - 1
+            return np.column_stack((U1, U2, U3))
+
+    def fit(self, X, Y):
+        self.model.fit(self.extract(X), Y)
+
+    def predict(self, X):
+        return self.model.predict(self.extract(X))
+
 class OracleRegressor2d():
     def __init__(self, setting: int):
         assert 1 <= setting and setting <= 8

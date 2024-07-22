@@ -10,10 +10,10 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.svm import SVR
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, accuracy_score
 from utility import gen_data, gen_data_2d, BH, Bonferroni
 from utility import rf_config, rf_str, mlp_config, mlp_str, interaction_type, range_arg
-from prediction_model import OracleRegressor2d
+from prediction_model import OracleRegressor2d_singledim, RfRegressor, MlpRegressor
 import argparse
 import itertools
 from multiprocessing import Pool
@@ -72,7 +72,7 @@ ntest = args.ntest
 sigma = '0.1'
 cov = '0.1'
 dim = args.dim
-q = 0.1
+q = 0.1 / 2
 
 # hardcode the sigma and covar
 sig_list = [0.1]
@@ -96,8 +96,8 @@ if regressor == 'rf':
 
     rf_param2 = [r for r in rf_param]
     rf_param2.remove(xaxis)
-    out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
+    out_dir = f"..\\csv2d-naive\\cont={cont}\\{regressor}\\{xaxis}"
+    full_out_dir = f"..\\csv2d-naive\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {rf_param2[0]}={config[rf_param2[0]]} {rf_param2[1]}={config[rf_param2[1]]} ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
 elif regressor == 'mlp':
     xaxis = args.xaxis
     xrange = args.range
@@ -105,16 +105,16 @@ elif regressor == 'mlp':
 
     mlp_param2 = [r for r in mlp_param]
     mlp_param2.remove(xaxis)
-    out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}"
-    full_out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
+    out_dir = f"..\\csv2d-naive\\cont={cont}\\{regressor}\\{xaxis}"
+    full_out_dir = f"..\\csv2d-naive\\cont={cont}\\{regressor}\\{xaxis}\\{xrange[0]},{xrange[1]},{xrange[2]} {mlp_param2[0]}={config[mlp_param2[0]]} ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
 elif regressor in ['linear', 'additive']:
     interaction = args.interaction
 
-    out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\interaction={interaction}"
-    full_out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
+    out_dir = f"..\\csv2d-naive\\cont={cont}\\{regressor}\\interaction={interaction}"
+    full_out_dir = f"..\\csv2d-naive\\cont={cont}\\{regressor}\\interaction={interaction}\\ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv"
 elif regressor == 'oracle':
-    out_dir = f"..\\csv2d\\cont={cont}\\{regressor}"
-    full_out_dir = f"..\\csv2d\\cont={cont}\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv" 
+    out_dir = f"..\\csv2d-naive\\cont={cont}\\{regressor}"
+    full_out_dir = f"..\\csv2d-naive\\cont={cont}\\{regressor}\\ntest={ntest} itr={itr} sigma={sigma} cov={cov} dim={dim}.csv" 
 
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
@@ -153,23 +153,130 @@ def run(sig, covar, setting, seed, **kwargs):
     # suppose the null hypothesis is Y1 or Y2 <= 0
     true_null = sum((Ytest[:, 0] > 0) & (Ytest[:, 1] > 0))
     
-    # MLP with 'layer' hidden layer, each of size 'hidden'
+    # for the first dimension:
     if regressor == 'rf':
         n_estim = int(kwargs["n_estim"])
         max_depth = int(kwargs["max_depth"])
         max_features = kwargs["max_features"]
+        max_leaf_nodes = kwargs["max_leaf_nodes"]
         try:
             max_features = int(max_features)
         except ValueError:
             pass # input is 'sqrt' or 'log2'.
-        ''' 
-        TODO: tune parameters for 2d task and then replace below to use wrapper class.
-        '''
-        reg = RandomForestRegressor(n_estimators=n_estim, max_depth=max_depth, max_features=max_features, random_state=0, min_samples_leaf=15)
+        try:
+            max_leaf_nodes = int(max_leaf_nodes)
+        except ValueError:
+            max_leaf_nodes = None # no restriction
+
+        reg = RfRegressor(setting=setting, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, max_leaf_nodes=max_leaf_nodes)
+        if setting == 9:
+            # TODO
+            reg = RandomForestRegressor(n_estimators=n_estim, min_samples_leaf=30, max_depth=max_depth, max_features=max_features, max_leaf_nodes=max_leaf_nodes)
     elif regressor == 'mlp':
         hidden = int(kwargs["hidden"])
         layers = int(kwargs["layers"])
-        reg = MLPRegressor(hidden_layer_sizes=(hidden, ) * layers, random_state=0, alpha=3e-2, max_iter=1000)
+        reg = MlpRegressor(setting=setting, hidden_layers=(hidden, ) * layers)
+    elif regressor == 'linear':
+        if kwargs["interaction"] == "no":
+            # no interaction
+            reg = LinearRegression()
+        elif kwargs["interaction"] == "yes":
+            poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
+            Xtrain = poly.fit_transform(Xtrain)
+            Xcalib = poly.fit_transform(Xcalib)
+            Xtest = poly.fit_transform(Xtest)
+            reg = LinearRegression()
+        elif kwargs["interaction"] == "oracle":
+            if setting in [1, 3, 5, 7]:
+                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 3], x[:, 1] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]))
+            if setting in [2, 4, 6, 8]:
+                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1]))
+            Xtrain = transf(Xtrain)
+            Xcalib = transf(Xcalib)
+            Xtest = transf(Xtest)
+            reg = LinearRegression()
+    elif regressor == 'additive':
+        if kwargs["interaction"] == "no":
+            tm_list = TermList()
+            for i in range(dim):
+                tm_list += s(i)
+            reg = LinearGAM(tm_list)
+        elif kwargs["interaction"] == "yes":
+            tm_list = TermList()
+            for i in range(dim):
+                tm_list += s(i)
+                for j in range(i+1, dim):
+                    tm_list += te(i, j)
+            reg = LinearGAM(tm_list)
+        elif kwargs["interaction"] == "oracle":
+            tm_list = TermList()
+            for i in range(4): # alternatively, use 4 here
+                tm_list += s(i)
+            if setting in [1, 3, 5, 7]:
+                tm_list += te(0, 1, 3)
+            if setting in [2, 4, 6, 8]:
+                tm_list += te(0, 1)
+            reg = LinearGAM(tm_list)
+    elif regressor == 'oracle':
+        reg = OracleRegressor2d_singledim(setting, d=0)
+    
+    if args.cont == 'False':
+        # fit (Y > 0) directly, not Y
+        reg.fit(Xtrain, 1 * (Ytrain[:, 0] > 0))
+        
+        # calibration 
+        calib_scores = Ycalib[:, 0] - reg.predict(Xcalib)                          # BH_res
+        calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
+        calib_scores_2clip = 1000 * (Ycalib[:, 0] > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
+        
+        Ypred = reg.predict(Xtest) 
+        test_scores = -Ypred
+
+        r_sq = r2_score((Ytest[:, 0] > 0), Ypred)
+    elif args.cont == 'True':
+        reg.fit(Xtrain, Ytrain[:, 0])
+        # calibration 
+        calib_scores = Ycalib[:, 0] - reg.predict(Xcalib)                          # BH_res
+        calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
+        calib_scores_2clip = 1000 * (Ycalib[:, 0] > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
+        
+        Ypred = reg.predict(Xtest) 
+        test_scores = -Ypred
+
+        r_sq = r2_score(Ytest[:, 0], Ypred)
+
+    # BH using residuals
+    BH_res_1 = BH(calib_scores, test_scores, q )       
+    # only use relevant samples to calibrate
+    BH_rel_1 = BH(calib_scores0[Ycalib[:, 0] <= 0], test_scores, q ) 
+    # use clipped scores
+    BH_2clip_1 = BH(calib_scores_2clip, test_scores, q )
+    # Bonferroni
+    Bonf_1 = Bonferroni(calib_scores_2clip, test_scores, q )
+
+    # for the second dimension:
+    if regressor == 'rf':
+        n_estim = int(kwargs["n_estim"])
+        max_depth = int(kwargs["max_depth"])
+        max_features = kwargs["max_features"]
+        max_leaf_nodes = kwargs["max_leaf_nodes"]
+        try:
+            max_features = int(max_features)
+        except ValueError:
+            pass # input is 'sqrt' or 'log2'.
+        try:
+            max_leaf_nodes = int(max_leaf_nodes)
+        except ValueError:
+            max_leaf_nodes = None # no restriction
+
+        reg = RfRegressor(setting=setting, n_estimators=n_estim, max_depth=max_depth, max_features=max_features, max_leaf_nodes=max_leaf_nodes)
+        if setting == 9:
+            # TODO
+            reg = RandomForestRegressor(n_estimators=n_estim, min_samples_leaf=30, max_depth=max_depth, max_features=max_features, max_leaf_nodes=max_leaf_nodes)
+    elif regressor == 'mlp':
+        hidden = int(kwargs["hidden"])
+        layers = int(kwargs["layers"])
+        reg = MlpRegressor(setting=setting, hidden_layers=(hidden, ) * layers)
     elif regressor == 'linear':
         if kwargs["interaction"] == "no":
             # no interaction
@@ -182,17 +289,15 @@ def run(sig, covar, setting, seed, **kwargs):
             reg = LinearRegression()
         elif kwargs["interaction"] == "oracle":
             if setting in [1, 3]:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 3], x[:, 0] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]))
+                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 3], x[:, 1] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]))
             if setting in [2, 4]:
                 transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1]))
             if setting in [5, 7]:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 3], x[:, 0] * x[:, 3], x[:, 0] * x[:, 1] * x[:, 3]
-                                                                         , x[:, 1] * x[:, 2], x[:, 0] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2]))
+                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 0] * x[:, 2], x[:, 1] * x[:, 2], x[:, 0] * x[:, 1] * x[:, 2]))
             if setting == 6:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 2]))
+                transf = lambda x : np.column_stack((x, x[:, 1] * x[:, 2]))
             if setting == 8:
-                transf = lambda x : np.column_stack((x, x[:, 0] * x[:, 1], x[:, 1] * x[:, 3]))
-
+                transf = lambda x : np.column_stack((x, x[:, 1] * x[:, 3]))
             Xtrain = transf(Xtrain)
             Xcalib = transf(Xcalib)
             Xtest = transf(Xtest)
@@ -219,68 +324,69 @@ def run(sig, covar, setting, seed, **kwargs):
             if setting in [2, 4]:
                 tm_list += te(0, 1)
             if setting in [5, 7]:
-                tm_list += te(0, 1, 3)
                 tm_list += te(0, 1, 2)
             if setting == 6:
-                tm_list += te(0, 1)
                 tm_list += te(1, 2)
             if setting == 8:
-                tm_list += te(0, 1)
                 tm_list += te(1, 3)
             reg = LinearGAM(tm_list)
     elif regressor == 'oracle':
-        reg = OracleRegressor2d(setting=setting)
+        reg = OracleRegressor2d_singledim(setting, d=1)
     
-    if cont == 'True':
-        # fit Y
-        reg.fit(Xtrain, Ytrain)
-        Ypred_calib = reg.predict(Xcalib)
+    if args.cont == 'False':
+        # fit (Y > 0) directly, not Y
+        reg.fit(Xtrain, 1 * (Ytrain[:, 1] > 0))
         
         # calibration 
-        calib_scores = dist(Ycalib) - dist(Ypred_calib)                                       # BH_res
-        calib_scores0 = - dist(Ypred_calib)                                                   # BH_sub
-        calib_scores_2clip = 1000 * ((Ycalib[:, 0] > 0) & (Ycalib[:, 1] > 0)) - dist(Ypred_calib)                          # BH_clip (with M = 1000)
-
+        calib_scores = Ycalib[:, 1] - reg.predict(Xcalib)                          # BH_res
+        calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
+        calib_scores_2clip = 1000 * (Ycalib[:, 1] > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
+        
         Ypred = reg.predict(Xtest) 
-        test_scores = - dist(Ypred)
+        test_scores = -Ypred
 
-        r_sq = r2_score(Ytest, Ypred)
-    elif cont == 'False':
-        # fit Y1 > 0, Y2 > 0
-        reg.fit(Xtrain, np.column_stack((Ytrain[:, 0] > 0, Ytrain[:, 1] > 0)))
-        Ypred_calib = reg.predict(Xcalib)
-
+        r_sq = r2_score((Ytest[:, 1] > 0), Ypred)
+    elif args.cont == 'True':
+        reg.fit(Xtrain, Ytrain[:, 1])
         # calibration 
-        calib_scores = Ycalib[:, 0] + Ycalib[:, 1] - Ypred_calib[:, 0] - Ypred_calib[:, 1]                                 # BH_res
-        calib_scores0 = - Ypred_calib[:, 0] - Ypred_calib[:, 1]                                                            # BH_sub
-        calib_scores_2clip = 1000 * ((Ycalib[:, 0] > 0) & (Ycalib[:, 1] > 0)) - Ypred_calib[:, 0] - Ypred_calib[:, 1]   
+        calib_scores = Ycalib[:, 1] - reg.predict(Xcalib)                          # BH_res
+        calib_scores0 = - reg.predict(Xcalib)                                # BH_sub
+        calib_scores_2clip = 1000 * (Ycalib[:, 1] > 0) - reg.predict(Xcalib)       # BH_clip (with M = 1000)
+        
+        Ypred = reg.predict(Xtest) 
+        test_scores = -Ypred
 
-        Ypred = reg.predict(Xtest)
-        test_scores = - Ypred[:, 0] - Ypred[:, 1]   
+        r_sq = r2_score(Ytest[:, 1], Ypred)
 
-        r_sq = r2_score(np.column_stack((Ytest[:, 0] > 0, Ytest[:, 1] > 0)), Ypred)
-    
     # BH using residuals
-    BH_res = BH(calib_scores, test_scores, q )
-    # summarize
+    BH_res_2 = BH(calib_scores, test_scores, q )
+    # only use relevant samples to calibrate
+    BH_rel_2 = BH(calib_scores0[Ycalib[:, 1] <= 0], test_scores, q )   
+    # use clipped scores
+    BH_2clip_2 = BH(calib_scores_2clip, test_scores, q )
+    # Bonferroni
+    Bonf_2 = Bonferroni(calib_scores_2clip, test_scores, q )
+
+    # now, intersect and calculate the metrics
+    BH_res = [i for i in BH_res_1 if i in set(BH_res_2)]
+    BH_rel = [i for i in BH_rel_1 if i in set(BH_rel_2)]
+    BH_2clip = [i for i in BH_2clip_1 if i in set(BH_2clip_2)]
+    Bonf = [i for i in Bonf_1 if i in set(Bonf_2)]
+
     if len(BH_res) == 0:
         BH_res_fdp = 0
         BH_res_power = 0
     else:
         BH_res_fdp = np.sum((Ytest[BH_res][:, 0] <= 0) | (Ytest[BH_res][:, 1] <= 0)) / len(BH_res)
         BH_res_power = np.sum((Ytest[BH_res][:, 0] > 0) & (Ytest[BH_res][:, 1] > 0)) / true_null if true_null != 0 else 0
-        
-    # only use relevant samples to calibrate
-    BH_rel = BH(calib_scores0[(Ycalib[:, 0] <= 0) | (Ycalib[:, 1] <= 0)], test_scores, q )
+
     if len(BH_rel) == 0:
         BH_rel_fdp = 0
         BH_rel_power = 0
     else:
         BH_rel_fdp = np.sum((Ytest[BH_rel][:, 0] <= 0) | (Ytest[BH_rel][:, 1] <= 0)) / len(BH_rel)
         BH_rel_power = np.sum((Ytest[BH_rel][:, 0] > 0) & (Ytest[BH_rel][:, 1] > 0)) / true_null if true_null != 0 else 0
-        
-    # use clipped scores
-    BH_2clip = BH(calib_scores_2clip, test_scores, q )
+    
     if len(BH_2clip) == 0:
         BH_2clip_fdp = 0
         BH_2clip_power = 0
@@ -288,15 +394,13 @@ def run(sig, covar, setting, seed, **kwargs):
         BH_2clip_fdp = np.sum((Ytest[BH_2clip][:, 0] <= 0) | (Ytest[BH_2clip][:, 1] <= 0)) / len(BH_2clip)
         BH_2clip_power = np.sum((Ytest[BH_2clip][:, 0] > 0) & (Ytest[BH_2clip][:, 1] > 0)) / true_null if true_null != 0 else 0
 
-    # Bonferroni
-    Bonf = Bonferroni(calib_scores_2clip, test_scores, q )
     if len(Bonf) == 0:
         Bonf_fdp = 0
         Bonf_power = 0
     else:
         Bonf_fdp = np.sum((Ytest[Bonf][:, 0] <= 0) | (Ytest[Bonf][:, 1] <= 0)) / len(Bonf)
         Bonf_power = np.sum((Ytest[Bonf][:, 0] > 0) & (Ytest[Bonf][:, 1] > 0)) / true_null if true_null != 0 else 0
-
+    
     df_dict = {
             'sigma': [sig],
             'dim': [dim],

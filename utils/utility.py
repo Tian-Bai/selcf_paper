@@ -296,7 +296,7 @@ def gen_data_2d(setting, n, sig, covar, dim=20):
 '''
 Calculate the conformal p-values and then apply Benjamini-Hochberg procedure to do selection while controlling FDR.
 '''
-def BH(calib_scores, test_scores, q = 0.1, return_pval=False):
+def BH(calib_scores, test_scores, q = 0.1, extra_info=None):
     ntest = len(test_scores)
     ncalib = len(calib_scores)
     pvals = np.zeros(ntest)
@@ -305,23 +305,27 @@ def BH(calib_scores, test_scores, q = 0.1, return_pval=False):
         pvals[j] = (np.sum(calib_scores < test_scores[j]) + np.random.uniform(size=1)[0] * (np.sum(calib_scores == test_scores[j]) + 1)) / (ncalib+1)
          
     # BH(q) 
-    df_test = pd.DataFrame({"id": range(ntest), "pval": pvals}).sort_values(by='pval')
+    df_test = pd.DataFrame({"id": range(ntest), "score": test_scores, "pval": pvals}).sort_values(by='pval')
     
     df_test['threshold'] = q * np.linspace(1, ntest, num=ntest) / ntest 
-    idx_smaller = [j for j in range(ntest) if df_test.iloc[j,1] <= df_test.iloc[j,2]]
+    idx_smaller = [j for j in range(ntest) if df_test.iloc[j,2] <= df_test.iloc[j,3]]
     
     if len(idx_smaller) == 0:
-        if not return_pval:
+        if not extra_info:
             return (np.array([]))
-        else:
+        elif extra_info == 'pval':
             return np.array([]), pvals
+        else:
+            return np.array([]), df_test
     else:
         idx_sel = np.array(df_test.index[range(np.max(idx_smaller)+1)])
-        if not return_pval:
+        if not extra_info:
             return (idx_sel)
-        else:
+        elif extra_info == 'pval':
             return idx_sel, pvals
-    
+        else:
+            return idx_sel, df_test
+
 '''
 Calculate the conformal p-values and then apply Bonferroni correction to select.
 '''
