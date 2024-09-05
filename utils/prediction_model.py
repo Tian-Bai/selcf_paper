@@ -220,6 +220,34 @@ class TrueRegressor2d():
             mu_x2 = (X[:,3] * X[:,1] + X[:,0] ** 2 + np.exp(X[:,2] - 1) - 1) * 2
             return np.column_stack((mu_x1, mu_x2))
         
+class OracleRegressorkd:
+    def __init__(self, setting: int):
+        assert 1 <= setting and setting <= 2
+        self.s = setting
+        self.model = LinearRegression()
+
+    def extract(self, X):
+        N, d = X.shape
+        if self.s == 1:
+            U1 = np.zeros((N, d))
+            U2 = np.zeros((N, d))
+            U3 = np.zeros((N, d))
+            for i in range(d):
+                U1[:,i] = X[:,(i) % d] * X[:,(i+1) % d]
+                U2[:,i] = X[:,(i+2) % d] ** 2 
+                U3[:,i] = np.exp(X[:,(i+3) % d] - 1)
+
+            return np.column_stack((U1, U2, U3))
+        if self.s == 2:
+            # already linear
+            return X
+        
+    def fit(self, X, Y):
+        self.model.fit(self.extract(X), Y)
+
+    def predict(self, X):
+        return self.model.predict(self.extract(X))
+
 ''' 
 Wrapper classes for summarizing the best hyperparameters.
 '''

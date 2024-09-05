@@ -295,10 +295,27 @@ def gen_data_2d(setting, n, sig, covar, dim=20):
         return X, Y, mu_x1, mu_x2, cov
 
 
-def gen_kd_data(setting, k, n, sig, covar, dim=10):
-    
-    pass
+def gen_data_kd(setting, k, n, sig, covar, dim=10):
+    X = np.random.uniform(low=-1, high=1, size=n*dim).reshape((n,dim))
+    Y = np.zeros((n,k))
+    cov = np.ones((k,k)) * sig * covar
+    np.fill_diagonal(cov, sig)
+    rng = np.random.default_rng(33)
 
+    if setting == 1:
+        # weak nonlinearity
+        for i in range(k):
+            Y[:,i] = X[:,(i) % dim] * X[:,(i+1) % dim] + X[:,(i+2) % dim] ** 2 + np.exp(X[:,(i+3) % dim] - 1)
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=np.zeros(k), cov=cov, size=n)
+        return X, Y
+    if setting == 2:
+        # linear
+        for i in range(k):
+            Y[:,i] = X[:,(i) % dim] * 2 + X[:,(i+1) % dim] * (-0.5) + X[:,(i+2) % dim] + 1.5
+        if sig != 0:
+            Y += rng.multivariate_normal(mean=np.zeros(k), cov=cov, size=n)
+        return X, Y
 '''
 Calculate the conformal p-values and then apply Benjamini-Hochberg procedure to do selection while controlling FDR.
 '''
