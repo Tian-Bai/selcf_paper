@@ -4,6 +4,7 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 import pandas as pd
 import sys
+import os
 import random
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
@@ -64,7 +65,7 @@ all_res['fdp_nominals'] = fdp_nominals
 ''' first, RMSE-treevar '''
 
 rf = RandomForestRegressor(n_estimators=100, max_depth=20, max_features='sqrt')
-Xtrain, Xcalib, Ytrain, Ycalib = train_test_split(Xtc, Ytc, train_size=0.5, shuffle=True)
+Xtrain, Xcalib, Ytrain, Ycalib = train_test_split(Xtc, Ytc, train_size=0.7, shuffle=True)
 rf.fit(Xtrain, Ytrain)
 
 R_list = np.zeros(200) # which threshold to use?
@@ -104,7 +105,9 @@ all_res['powers_15_tv'] = powers_15_tv
 # how to simulate the RMSE dataset?
 # Xcalib, Ycalib is for deciding the R threshold and should not be visible to the RMSE cross-validation
 
-Xtrain, Xcalib, Ytrain, Ycalib = train_test_split(Xtc, Ytc, train_size=0.6, shuffle=True)
+# since data is limited in size in our case, we will only use 1d binning
+
+Xtrain, Xcalib, Ytrain, Ycalib = train_test_split(Xtc, Ytc, train_size=0.7, shuffle=True)
 
 # now only use Xtrain to do RMSE binning
 
@@ -174,13 +177,21 @@ rf_rmse = RandomForestRegressor(n_estimators=100, max_depth=20, max_features='sq
 Xtrain, Xcalib, Ytrain, Ycalib = train_test_split(Xtc, Ytc, train_size=0.7, shuffle=True)
 Xtrain, Xtrain_rmse, Ytrain, Ytrain_rmse = train_test_split(Xtrain, Ytrain, train_size=0.5, shuffle=True)
 rf.fit(Xtrain, Ytrain)
-rf_rmse.fit(Xtrain_rmse, np.abs(Ytrain_rmse - rf.predict(Xtrain_rmse)))
+
+Ytrain_rmse_pred = rf.predict(Xtrain_rmse)
+all_Ytrain_rmse_pred = np.column_stack([tree.predict(Xtrain_rmse) for tree in rf.estimators_])
+var_train_rmse = np.var(all_Ytrain_rmse_pred, axis=1)
+
+rf_rmse.fit(np.column_stack((Ytrain_rmse_pred, var_train_rmse)), np.abs(Ytrain_rmse - Ytrain_rmse_pred))
 
 R_list = np.zeros(200) # which threshold to use?
 fdps_15_rp, pcers_15_rp, powers_15_rp = [], [], []
 
 Ypred_calib = rf.predict(Xcalib)
-rmse_calib = rf_rmse.predict(Xcalib)
+all_Ypred = np.column_stack([tree.predict(Xcalib) for tree in rf.estimators_])
+var_calib = np.var(all_Ypred, axis=1)
+
+rmse_calib = rf_rmse.predict(np.column_stack((Ypred_calib, var_calib)))
 
 z_calib = (threshold - Ypred_calib) / rmse_calib
 
@@ -190,7 +201,10 @@ for R in np.linspace(0.5, -2, 200):
     R_list[fdp_nominals >= try_fdp] = R
 
 Ypred_test = rf.predict(Xtest)
-rmse_test = rf_rmse.predict(Xtest)
+all_Ypred = np.column_stack([tree.predict(Xtest) for tree in rf.estimators_])
+var_test = np.var(all_Ypred, axis=1)
+
+rmse_test = rf_rmse.predict(np.column_stack((Ypred_test, var_test)))
 z_test = (threshold - Ypred_test) / rmse_test
 
 for i, R in enumerate(R_list):
@@ -207,7 +221,7 @@ all_res['powers_15_rp'] = powers_15_rp
 ''' our conformal selection method '''
 
 rf = RandomForestRegressor(n_estimators=100, max_depth=20, max_features='sqrt')
-Xtrain, Xcalib, Ytrain, Ycalib = train_test_split(Xtc, Ytc, train_size=0.4, shuffle=True)
+Xtrain, Xcalib, Ytrain, Ycalib = train_test_split(Xtc, Ytc, train_size=0.7, shuffle=True)
 rf.fit(Xtrain, Ytrain < threshold)
 
 fdps_cs, pcers_cs, powers_cs = [], [], []
@@ -224,5 +238,10 @@ for i, fdp_nominal in enumerate(fdp_nominals):
 all_res['fdps_cs'] = fdps_cs
 all_res['pcers_cs'] = pcers_cs
 all_res['powers_cs'] = powers_cs
+
+out_dir = f'sheridan-cs\\{dataset_name} {args.sample:.2f}'
+
+if not os.path.exists(out_dir):
+    os.makedirs(out_dir)
 
 all_res.to_csv(f'sheridan-cs\\{dataset_name} {args.sample:.2f}\\{dataset_name} {args.sample:.2f} {args.seed}.csv')
