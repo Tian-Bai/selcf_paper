@@ -1,6 +1,8 @@
 import pandas as pd
+import numpy as np
 from matplotlib import pyplot as plt
 import argparse
+import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset', type=str)
@@ -36,6 +38,11 @@ fdps_cs = df['fdps_cs']
 pcers_cs = df['pcers_cs']
 
 # plot treevar
+
+out_dir = f'sheridan-cs-pic\\{args.dataset} {args.sample:.2f}'
+
+if not os.path.exists(out_dir):
+    os.makedirs(out_dir)
 
 fig, axs = plt.subplots(ncols=3, figsize=(20, 6))
 
@@ -100,6 +107,25 @@ axs[2].plot(fdp_nominals, pcers_cs)
 axs[2].set_xlabel("nominal level")
 axs[2].set_ylabel("PCER")
 plt.savefig(f'sheridan-cs-pic\\{args.dataset} {args.sample:.2f}\\Power, FDP and PCER (cs).png')
+
+# FDP power comparison
+
+idx = np.searchsorted(fdp_nominals, 0.5, side='right')
+
+fig, axs = plt.subplots(figsize=(8, 6))
+
+fig.suptitle(f"FDP control for Sheridan's method and Conformal Selection method, \n {args.dataset} dataset, averaged over {args.seednum} times")
+# axs.plot(fdps_12, powers_12, label='Sheridan (2012)')
+# axs.plot(fdps_04, powers_04, label='Sheridan (2004)')
+axs.plot(fdp_nominals[:idx], fdps_15_tv[:idx], label='Sheridan (2015), tv')
+axs.plot(fdp_nominals[:idx], fdps_15_rb[:idx], label='Sheridan (2015), rb')
+axs.plot(fdp_nominals[:idx], fdps_15_rp[:idx], label='Sheridan (2015), rp')
+axs.plot(fdp_nominals[:idx], fdps_cs[:idx], label='Conformal Selection')
+axs.plot([0, 0.5], [0, 0.5], color='grey', alpha=0.7, linestyle='-.')
+axs.set_xlabel("Nominal level")
+axs.set_ylabel("Realized FDP")
+plt.legend()
+plt.savefig(f'sheridan-cs-pic\\{args.dataset} {args.sample:.2f}\\FDP control.png')
 
 # plot power comparison
 
